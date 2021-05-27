@@ -173,9 +173,6 @@ class SessionResource(object):
                 request_subnets=const.REQUEST_SUBNETS or None,
                 machine_enrollment_subnets=const.MACHINE_ENROLLMENT_SUBNETS or None,
                 admin_subnets=const.ADMIN_SUBNETS or None,
-
-                ocsp_subnets=const.OCSP_SUBNETS or None,
-                crl_subnets=const.CRL_SUBNETS or None,
             ),
             features=dict(
                 token=True,

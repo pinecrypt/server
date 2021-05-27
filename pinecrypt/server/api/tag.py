@@ -2,8 +2,6 @@ from pinecrypt.server import db
 from pinecrypt.server.decorators import serialize, csrf_protection
 from .utils.firewall import login_required, authorize_admin
 
-logger = logging.getLogger(__name__)
-
 class TagResource(object):
     @serialize
     @login_required

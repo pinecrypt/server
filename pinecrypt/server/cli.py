@@ -396,11 +396,6 @@ def pinecone_serve_backend():
 
     # CN to Id api call
     app.add_route("/api/signed/{cn}", SignedCertificateDetailResource(), suffix="cn")
-    app.add_route("/api/request/{cn}", RequestDetailResource(), suffix="cn")
-    app.add_route("/api/signed/{cn}/script", ScriptResource(), suffix="cn")
-    app.add_route("/api/signed/{cn}/tag", TagResource(), suffix="cn")
-    app.add_route("/api/signed/{cn}/tag/{tag}", TagDetailResource(), suffix="cn")
-
 
     # Certificate authority API calls
     app.add_route("/api/certificate", CertificateAuthorityResource())
@@ -658,7 +653,6 @@ def pinecone_serve_strongswan(client_subnet_slot):
 
 pinecone_serve.add_command(pinecone_serve_openvpn)
 pinecone_serve.add_command(pinecone_serve_strongswan)
-pinecone_serve.add_command(pinecone_serve_syslog)
 pinecone_serve.add_command(pinecone_serve_backend)
 pinecone_serve.add_command(pinecone_serve_ocsp_responder)
 pinecone_serve.add_command(pinecone_serve_events)
