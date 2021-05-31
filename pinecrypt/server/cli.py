@@ -513,11 +513,13 @@ def pinecone_serve_openvpn(local, proto, client_subnet_slot):
         args += "--proto", "tcp-server",
         args += "--port", "443",
         args += "--socket-flags", "TCP_NODELAY",
+        args += "--management", "127.0.0.1", "7506",
         instance = "%s-openvpn-tcp-443" % const.FQDN
     else:
         args += "--dev", "tunudp0",
         args += "--proto", "udp",
         args += "--port", "1194",
+        args += "--management", "127.0.0.1", "7505",
         instance = "%s-openvpn-udp-1194" % const.FQDN
     args += "--setenv", "instance", instance
     db.certificates.update_many({
