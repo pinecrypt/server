@@ -230,6 +230,7 @@ def pinecone_provision():
         yield "-A INPUT -p icmp -j ACCEPT -m comment --comment \"Allow ping\""
         yield "-A INPUT -p esp -j ACCEPT -m comment --comment \"Allow ESP traffic\""
         yield "-A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT -m comment --comment \"Allow returning packets\""
+        yield "-A INPUT -p tcp --dport 22 -j ACCEPT -m comment --comment \"Allow SSH\""
         yield "-A INPUT -p udp --dport 53 -j ACCEPT -m comment --comment \"Allow GoreDNS over UDP\""
         yield "-A INPUT -p tcp --dport 53 -j ACCEPT -m comment --comment \"Allow GoreDNS over TCP\""
         yield "-A INPUT -p tcp --dport 80 -j ACCEPT -m comment --comment \"Allow insecure HTTP\""
