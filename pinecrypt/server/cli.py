@@ -30,9 +30,11 @@ from wsgiref.simple_server import make_server
 logger = logging.getLogger(__name__)
 mongolog.register()
 
+
 def graceful_exit(signal_number, stack_frame):
     print("Received signal %d, exiting now" % signal_number)
     sys.exit(0)
+
 
 def fqdn_required(func):
     def wrapped(**args):
@@ -104,7 +106,8 @@ def pinecone_sign(common_name, overwrite, profile):
 
 
 @click.command("revoke", help="Revoke certificate")
-@click.option("--reason", "-r", default="key_compromise", help="Revocation reason, one of: key_compromise affiliation_changed superseded cessation_of_operation privilege_withdrawn")
+@click.option("--reason", "-r", default="key_compromise",
+    help="Revocation reason, one of: key_compromise affiliation_changed superseded cessation_of_operation privilege_withdrawn")
 @click.argument("common_name")
 def pinecone_revoke(common_name, reason):
     from pinecrypt.server import authority
@@ -172,15 +175,18 @@ def pinecone_serve_ocsp_responder():
     from pinecrypt.server.api.ocsp import app
     app.run(port=5001, debug=const.DEBUG)
 
+
 @click.command("events")
 def pinecone_serve_events():
     from pinecrypt.server.api.events import app
     app.run(port=8001, debug=const.DEBUG)
 
+
 @click.command("builder")
 def pinecone_serve_builder():
     from pinecrypt.server.api.builder import app
     app.run(port=7001, debug=const.DEBUG)
+
 
 @click.command("provision", help="Provision keys")
 def pinecone_provision():
@@ -210,7 +216,6 @@ def pinecone_provision():
 
     for subnet in const.PROMETHEUS_SUBNETS:
         os.system("ipset add -exist -quiet ipset%d-prometheus-subnets %s" % (subnet.version, subnet))
-
 
     def g():
         yield "*filter"
@@ -268,18 +273,19 @@ def pinecone_provision():
             fh.write(line)
             fh.write("\n")
 
-    os.system("iptables-restore < /tmp/rules4")
-    os.system("sed -e 's/ipset4/ipset6/g' -e 's/p icmp/p ipv6-icmp/g' /tmp/rules4 > /tmp/rules6")
-    os.system("ip6tables-restore < /tmp/rules6")
-    os.system("sysctl -w net.ipv6.conf.all.forwarding=1")
-    os.system("sysctl -w net.ipv6.conf.default.forwarding=1")
-    os.system("sysctl -w net.ipv4.ip_forward=1")
+    if not const.DISABLE_FIREWALL:
+        os.system("iptables-restore < /tmp/rules4")
+        os.system("sed -e 's/ipset4/ipset6/g' -e 's/p icmp/p ipv6-icmp/g' /tmp/rules4 > /tmp/rules6")
+        os.system("ip6tables-restore < /tmp/rules6")
+        os.system("sysctl -w net.ipv6.conf.all.forwarding=1")
+        os.system("sysctl -w net.ipv6.conf.default.forwarding=1")
+        os.system("sysctl -w net.ipv4.ip_forward=1")
 
     if const.REPLICAS:
         click.echo("Provisioning MongoDB replicaset")
         # WTF https://github.com/docker-library/mongo/issues/339
         c = pymongo.MongoClient("localhost", 27017)
-        config ={"_id" : "rs0", "members": [
+        config = {"_id": "rs0", "members": [
             {"_id": index, "host": "%s:27017" % hostname} for index, hostname in enumerate(const.REPLICAS)]}
         print("Provisioning MongoDB replicaset: %s" % repr(config))
         try:
@@ -404,7 +410,7 @@ def pinecone_serve_backend():
 
     token_resource = None
     token_manager = None
-    if const.USER_ENROLLMENT_ALLOWED: # TODO: add token enable/disable flag for config
+    if const.USER_ENROLLMENT_ALLOWED:  # TODO: add token enable/disable flag for config
         token_manager = TokenManager()
         token_resource = TokenResource(token_manager)
         app.add_route("/api/token", token_resource)
@@ -442,7 +448,7 @@ def pinecone_token_list():
     cols = "uuid", "expires", "subject", "state"
     now = datetime.utcnow().replace(tzinfo=pytz.UTC)
     for token in token_manager.list(expired=True, used=True):
-        token["state"] = "used" if token.get("used") else ("valid" if token.get("expires") > now  else "expired")
+        token["state"] = "used" if token.get("used") else ("valid" if token.get("expires") > now else "expired")
         print(";".join([str(token.get(col)) for col in cols]))
 
 
@@ -555,8 +561,8 @@ def pinecone_serve_openvpn(local, proto, client_subnet_slot):
 
     # For more info see: openvpn --show-tls
     args += "--tls-version-min", config.get("Globals", "OPENVPN_TLS_VERSION_MIN")["value"]
-    args += "--tls-ciphersuites", config.get("Globals", "OPENVPN_TLS_CIPHERSUITES")["value"], # Used by TLS 1.3
-    args += "--tls-cipher", config.get("Globals", "OPENVPN_TLS_CIPHER")["value"], # Used by TLS 1.2
+    args += "--tls-ciphersuites", config.get("Globals", "OPENVPN_TLS_CIPHERSUITES")["value"],  # Used by TLS 1.3
+    args += "--tls-cipher", config.get("Globals", "OPENVPN_TLS_CIPHER")["value"],  # Used by TLS 1.2
 
     # Data channel encryption parameters
     # TODO: Rename to --data-cipher when OpenVPN 2.5 becomes available
@@ -604,7 +610,7 @@ def pinecone_serve_strongswan(client_subnet_slot):
 
         fh.write("  left=%s\n" % const.AUTHORITY_NAMESPACE)
         fh.write("  leftsendcert=always\n")
-        fh.write("  leftallowany=yes\n") # For load-balancing
+        fh.write("  leftallowany=yes\n")  # For load-balancing
         fh.write("  leftcert=%s\n" % const.SELF_CERT_PATH)
         if const.PUSH_SUBNETS:
             fh.write("  leftsubnet=%s\n" % ",".join([str(j) for j in const.PUSH_SUBNETS]))
@@ -626,8 +632,8 @@ def pinecone_serve_strongswan(client_subnet_slot):
         public_key = asymmetric.load_public_key(certificate["tbs_certificate"]["subject_public_key_info"])
     with open("/etc/ipsec.secrets", "w") as fh:
         fh.write(": %s %s\n" % (
-          "ECDSA" if public_key.algorithm == "ec" else "RSA",
-          const.SELF_KEY_PATH
+            "ECDSA" if public_key.algorithm == "ec" else "RSA",
+            const.SELF_KEY_PATH
         ))
     executable = "/usr/sbin/ipsec"
     args = executable, "start", "--nofork"

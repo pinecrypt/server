@@ -1,4 +1,4 @@
-
+import ldap
 import click
 import os
 import re
@@ -9,12 +9,13 @@ from ipaddress import ip_network
 from math import log, ceil
 
 RE_USERNAME = r"^[a-z][a-z0-9]+$"
-RE_FQDN =  r"^(([a-z0-9]|[a-z0-9][a-z0-9\-_]*[a-z0-9])\.)+([a-z0-9]|[a-z0-9][a-z0-9\-_]*[a-z0-9])?$"
-RE_HOSTNAME =  r"^[a-z0-9]([a-z0-9\-_]{0,61}[a-z0-9])?$"
+RE_FQDN = r"^(([a-z0-9]|[a-z0-9][a-z0-9\-_]*[a-z0-9])\.)+([a-z0-9]|[a-z0-9][a-z0-9\-_]*[a-z0-9])?$"
+RE_HOSTNAME = r"^[a-z0-9]([a-z0-9\-_]{0,61}[a-z0-9])?$"
 RE_COMMON_NAME = r"^[A-Za-z0-9\-\_]+$"
 
 # Make sure locales don't mess up anything
 assert re.match(RE_USERNAME, "abstuzxy19")
+
 
 # To be migrated to Mongo or removed
 def parse_tag_types(d):
@@ -22,6 +23,8 @@ def parse_tag_types(d):
     for j in d.split(","):
         r.append(j.split("/"))
     return r
+
+
 TAG_TYPES = parse_tag_types(os.getenv("TAG_TYPES", "owner/str,location/str,phone/str,other/str"))
 SCRIPT_DIR = ""
 IMAGE_BUILDER_PROFILES = []
@@ -57,15 +60,17 @@ except socket.gaierror:
 
 try:
     HOSTNAME, DOMAIN = FQDN.split(".", 1)
-except ValueError: # If FQDN is not configured
+except ValueError:  # If FQDN is not configured
     click.echo("FQDN not configured: %s" % repr(FQDN))
     sys.exit(255)
+
 
 def getenv_in(key, default, *vals):
     val = os.getenv(key, default)
     if val not in (default,) + vals:
         raise ValueError("Got %s for %s, expected one of %s" % (repr(val), key, vals))
     return val
+
 
 # Authority namespace corresponds to DNS entry which represents refers to all replicas
 AUTHORITY_NAMESPACE = os.getenv("AUTHORITY_NAMESPACE", FQDN)
@@ -76,14 +81,14 @@ USER_NAMESPACE = "u.%s" % AUTHORITY_NAMESPACE
 MACHINE_NAMESPACE = "m.%s" % AUTHORITY_NAMESPACE
 AUTHORITY_COMMON_NAME = "Pinecrypt Gateway at %s" % AUTHORITY_NAMESPACE
 AUTHORITY_ORGANIZATION = os.getenv("AUTHORITY_ORGANIZATION")
-AUTHORITY_LIFETIME_DAYS = 20*365
+AUTHORITY_LIFETIME_DAYS = 20 * 365
 
 # Advertise following IP addresses via DNS record
 ADVERTISE_ADDRESS = os.getenv("ADVERTISE_ADDRESS", "").split(",")
 if not ADVERTISE_ADDRESS:
     ADVERTISE_ADDRESS = set()
-    for fam, _, _, _, addrs in socket.getaddrinfo(const.FQDN, None):
-        if fam in(2, 10):
+    for fam, _, _, _, addrs in socket.getaddrinfo(FQDN, None):
+        if fam in (2, 10):
             ADVERTISE_ADDRESS.add(addrs[0])
 
 # Mailer settings
@@ -125,7 +130,6 @@ LDAP_USER_FILTER = os.getenv("LDAP_USER_FILTER", "(samaccountname=%s)")
 LDAP_ADMIN_FILTER = os.getenv("LDAP_ADMIN_FILTER", "(samaccountname=%s)")
 LDAP_COMPUTER_FILTER = os.getenv("LDAP_COMPUTER_FILTER", "()")
 
-import ldap
 LDAP_CA_CERT = os.getenv("LDAP_CA_CERT")
 if LDAP_CA_CERT:
     ldap.set_option(ldap.OPT_X_TLS_CACERTFILE, LDAP_CA_CERT)
@@ -134,8 +138,10 @@ if os.getenv("LDAP_DEBUG"):
     ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
     ldap.set_option(ldap.OPT_DEBUG_LEVEL, 1)
 
+
 def getenv_subnets(key, default=""):
     return set([ip_network(j) for j in os.getenv(key, default).replace(",", " ").split(" ") if j])
+
 
 USER_SUBNETS = getenv_subnets("AUTH_USER_SUBNETS", "0.0.0.0/0 ::/0")
 ADMIN_SUBNETS = getenv_subnets("AUTH_ADMIN_SUBNETS", "0.0.0.0/0 ::/0")
@@ -178,3 +184,5 @@ SESSION_COOKIE = "sha512brownies"
 SESSION_AGE = 3600
 
 SECRET_STORAGE = getenv_in("SECRET_STORAGE", "fs", "db")
+
+DISABLE_FIREWALL = os.getenv("DISABLE_FIREWALL") == "True" if os.getenv("DISABLE_FIREWALL") else False
