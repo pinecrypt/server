@@ -398,6 +398,7 @@ def pinecone_serve_backend():
 
     # CN to Id api call
     app.add_route("/api/signed/{cn}", SignedCertificateDetailResource(), suffix="cn")
+    app.add_route("/api/signed/{cn}/tag", TagResource(), suffix="cn")
 
     # Certificate authority API calls
     app.add_route("/api/certificate", CertificateAuthorityResource())
