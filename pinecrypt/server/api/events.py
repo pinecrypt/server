@@ -21,6 +21,7 @@ app = Sanic("events")
 monitor(app).expose_endpoint()
 app.config.RESPONSE_TIMEOUT = 999
 
+
 def cookie_login(func):
     @wraps(func)
     async def wrapped(request, *args, **kwargs):
@@ -38,8 +39,8 @@ def cookie_login(func):
             },
         }, {
             "$set": {
-                "last_seen": now,
-           }
+                "last_seen": now
+            }
         })
         return await func(request, *args, **kwargs)
     return wrapped
@@ -86,19 +87,18 @@ async def view_event(request):
                         events_emitted.inc()
 
                     if event.get("operationType") == "update" and "tags" in event.get("updateDescription").get("updatedFields"):
-                        await resp.write("event: tag-update\ndata: %s\n\n" % event["fullDocument"].get("common_name"))
+                        await resp.write("event: tag-update\ndata: %s\n\n" % str(event["documentKey"].get("_id")))
                         events_emitted.inc()
 
                     if event.get("operationType") == "update" and "attributes" in event.get("updateDescription").get("updatedFields"):
                         await resp.write("event: attribute-update\ndata: %s\n\n" % str(event["documentKey"].get("_id")))
                         events_emitted.inc()
 
-
                 if event.get("ns").get("coll") == "certidude_logs":
 
                     from pinecrypt.server.decorators import MyEncoder
 
-                    obj=dict(
+                    obj = dict(
                         created=event["fullDocument"].get("created"),
                         message=event["fullDocument"].get("message"),
                         severity=event["fullDocument"].get("severity")
@@ -111,7 +111,7 @@ async def view_event(request):
 
 @app.route("/api/event/request-signed/<id>")
 async def publish(request, id):
-    pipeline = [{"$match": { "operationType": "update", "fullDocument.status": "signed", "documentKey._id": ObjectId(id)}}]
+    pipeline = [{"$match": {"operationType": "update", "fullDocument.status": "signed", "documentKey._id": ObjectId(id)}}]
     resp = await request.respond(content_type="application/x-x509-user-cert")
     async with app.db["certidude_certificates"].watch(pipeline, full_document="updateLookup") as stream:
         async for event in stream:
