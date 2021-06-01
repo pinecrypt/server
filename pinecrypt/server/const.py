@@ -78,6 +78,14 @@ AUTHORITY_COMMON_NAME = "Pinecrypt Gateway at %s" % AUTHORITY_NAMESPACE
 AUTHORITY_ORGANIZATION = os.getenv("AUTHORITY_ORGANIZATION")
 AUTHORITY_LIFETIME_DAYS = 20*365
 
+# Advertise following IP addresses via DNS record
+ADVERTISE_ADDRESS = os.getenv("ADVERTISE_ADDRESS", "").split(",")
+if not ADVERTISE_ADDRESS:
+    ADVERTISE_ADDRESS = set()
+    for fam, _, _, _, addrs in socket.getaddrinfo(const.FQDN, None):
+        if fam in(2, 10):
+            ADVERTISE_ADDRESS.add(addrs[0])
+
 # Mailer settings
 SMTP_HOST = os.getenv("SMTP_HOST", "localhost")
 SMTP_PORT = os.getenv("SMTP_PORT", 25)

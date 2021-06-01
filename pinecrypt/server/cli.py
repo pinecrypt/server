@@ -350,13 +350,8 @@ def pinecone_provision():
     from pinecrypt.server import authority
     authority.self_enroll(skip_notify=True)
 
-    myips = set()
-    for fam, _, _, _, addrs in socket.getaddrinfo(const.FQDN, None):
-        if fam in(2, 10):
-            myips.add(addrs[0])
-
     # Insert/update DNS records for the replica itself
-    click.echo("Updating self DNS records: %s -> %s" % (const.FQDN, repr(myips)))
+    click.echo("Advertising via DNS: %s -> %s" % (const.FQDN, repr(const.ADVERTISE_ADDRESS)))
     db.certificates.update_one({
         "common_name": const.FQDN,
         "status": "signed",
@@ -366,7 +361,7 @@ def pinecone_provision():
                 "fqdn": const.FQDN,
                 "san": const.AUTHORITY_NAMESPACE,
             },
-            "ip": list(myips),
+            "ip": list(const.ADVERTISE_ADDRESS),
         }
     })
 
