@@ -53,10 +53,7 @@ SELF_KEY_PATH = "/var/lib/certidude/server-secrets/self_key.pem"
 DHPARAM_PATH = "/var/lib/certidude/server-secrets/dhparam.pem"
 BUILDER_TARBALLS = ""
 
-try:
-    FQDN = socket.getaddrinfo(socket.gethostname(), 0, socket.AF_INET, 0, 0, socket.AI_CANONNAME)[0][3]
-except socket.gaierror:
-    FQDN = socket.gethostname()
+FQDN = socket.getfqdn()
 
 try:
     HOSTNAME, DOMAIN = FQDN.split(".", 1)
