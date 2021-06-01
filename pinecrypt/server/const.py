@@ -81,7 +81,7 @@ AUTHORITY_ORGANIZATION = os.getenv("AUTHORITY_ORGANIZATION")
 AUTHORITY_LIFETIME_DAYS = 20 * 365
 
 # Advertise following IP addresses via DNS record
-ADVERTISE_ADDRESS = os.getenv("ADVERTISE_ADDRESS", "").split(",")
+ADVERTISE_ADDRESS = [j for j  in os.getenv("ADVERTISE_ADDRESS", "").split(",") if j]
 if not ADVERTISE_ADDRESS:
     ADVERTISE_ADDRESS = set()
     for fam, _, _, _, addrs in socket.getaddrinfo(FQDN, None):
