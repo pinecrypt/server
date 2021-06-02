@@ -1,4 +1,5 @@
 include README.md
+include pinecrypt/server/templates/*.conf
 include pinecrypt/server/templates/mail/*.md
 include pinecrypt/server/builder/overlay/usr/bin/pinecrypt.server-*
 include pinecrypt/server/builder/overlay/etc/uci-defaults/*

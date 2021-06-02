@@ -1,4 +1,4 @@
-FROM ubuntu:20.04 as base
+FROM ubuntu:20.04
 ENV container docker
 ENV PYTHONUNBUFFERED=1
 ENV LC_ALL C.UTF-8

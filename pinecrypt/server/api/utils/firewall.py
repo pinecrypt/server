@@ -169,7 +169,7 @@ def authenticate(optional=False):
                 user, passwd = b64decode(token).decode("utf-8").split(":", 1)
 
             if "ldap" in const.AUTHENTICATION_BACKENDS:
-                upn = "%s@%s" % (user, const.KERBEROS_REALM)
+                upn = ("%s@%s" % (user, const.KERBEROS_REALM)).lower()
                 click.echo("Connecting to %s as %s" % (const.LDAP_AUTHENTICATION_URI, upn))
                 conn = ldap.initialize(const.LDAP_AUTHENTICATION_URI, bytes_mode=False)
                 conn.set_option(ldap.OPT_REFERRALS, 0)
@@ -185,9 +185,9 @@ def authenticate(optional=False):
                     raise
                 except ldap.INVALID_CREDENTIALS:
                     logger.critical("LDAP bind authentication failed for user %s from  %s",
-                        repr(user), req.context["remote"]["addr"])
+                        repr(upn), req.context["remote"]["addr"])
                     raise falcon.HTTPUnauthorized(
-                        description="Please authenticate with %s domain account username" % const.DOMAIN,
+                        description="Please authenticate with %s domain account username" % const.KERBEROS_REALM,
                         challenges=["Basic"])
 
                 req.context["ldap_conn"] = conn

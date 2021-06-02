@@ -20,7 +20,9 @@ import pytz
 from asn1crypto import pem, x509
 from certbuilder import CertificateBuilder, pem_armor_certificate
 from datetime import datetime, timedelta
+from jinja2 import Environment, PackageLoader
 from oscrypto import asymmetric
+from math import log, ceil
 from pinecrypt.server import const, mongolog, mailer, db
 from pinecrypt.server.middleware import NormalizeMiddleware, PrometheusEndpoint
 from pinecrypt.server.common import cn_to_dn, generate_serial
@@ -340,8 +342,8 @@ def pinecone_provision():
         with open(const.AUTHORITY_PRIVATE_KEY_PATH + ".part", "wb") as f:
             f.write(obj["key"])
 
-        # Set permission bits to 640
-        os.umask(0o137)
+        # Set permission bits to 644
+        os.umask(0o133)
         with open(const.AUTHORITY_CERTIFICATE_PATH + ".part", "wb") as f:
             f.write(obj["cert"])
 
@@ -370,6 +372,71 @@ def pinecone_provision():
             "ip": list(const.ADVERTISE_ADDRESS),
         }
     })
+
+    # Separate pushed subnets by address family
+    push4 = set()
+    push6 = set()
+    for subnet in const.PUSH_SUBNETS:
+        if subnet.version == 4:
+            push4.add(subnet)
+        elif subnet.version == 6:
+            if not const.CLIENT_SUBNET6:
+                raise ValueError("Can't push IPv6 routes if no IPv6 client subnet is configured")
+            push6.add(subnet)
+        else:
+            raise NotImplementedError()
+
+    # Generate OpenVPN configurations
+    click.echo("Generating OpenVPN configuration files...")
+    from pinecrypt.server import config
+    ctx = {
+        "authority_namespace": const.AUTHORITY_NAMESPACE,
+        "push4": push4,
+        "push6": push6,
+        "openvpn_tls_version_min": config.get("Globals", "OPENVPN_TLS_VERSION_MIN")["value"],
+        "openvpn_tls_ciphersuites": config.get("Globals", "OPENVPN_TLS_CIPHERSUITES")["value"],
+        "openvpn_tls_cipher": config.get("Globals", "OPENVPN_TLS_CIPHER")["value"],
+        "openvpn_cipher": config.get("Globals", "OPENVPN_CIPHER")["value"],
+        "openvpn_auth": config.get("Globals", "OPENVPN_AUTH")["value"],
+        "strongswan_dhgroup": config.get("Globals", "STRONGSWAN_DHGROUP")["value"],
+        "strongswan_ike": config.get("Globals", "STRONGSWAN_IKE")["value"],
+        "strongswan_esp": config.get("Globals", "STRONGSWAN_ESP")["value"],
+    }
+
+    env = Environment(loader=PackageLoader("pinecrypt.server", "templates"))
+    os.umask(0o133)
+
+    d = ceil(log(const.CLIENT_SUBNET_SLOT_COUNT) / log(2))
+    for slot, proto in enumerate(["udp", "tcp"]):
+        ctx["proto"] = proto
+        ctx["slot4"] = list(const.CLIENT_SUBNET4.subnets(d))[slot]
+        ctx["slot6"] = list(const.CLIENT_SUBNET6.subnets(d))[slot] if const.CLIENT_SUBNET6 else None
+        with open("/server-secrets/openvpn-%s.conf" % proto, "w") as fh:
+            fh.write(env.get_template("openvpn.conf").render(ctx))
+
+    # Merged variants for StrongSwan
+    ctx["push"] = ctx["push4"].union(ctx["push6"])
+
+    # Generate StrongSwan config
+    click.echo("Generating StrongSwan configuration files...")
+    slot += 1
+    ctx["slot4"] = list(const.CLIENT_SUBNET4.subnets(d))[slot]
+    ctx["slot6"] = list(const.CLIENT_SUBNET6.subnets(d))[slot] if const.CLIENT_SUBNET6 else []
+    with open("/server-secrets/ipsec.conf", "w") as fh:
+        fh.write(env.get_template("ipsec.conf").render(ctx))
+
+    # Why do you do this StrongSwan?! You will parse the cert anyway,
+    # why do I need to distinguish ECDSA vs RSA in config?!
+    with open(const.SELF_CERT_PATH, "rb") as fh:
+        certificate_buf = fh.read()
+        header, _, certificate_der_bytes = pem.unarmor(certificate_buf)
+        certificate = x509.Certificate.load(certificate_der_bytes)
+        public_key = asymmetric.load_public_key(certificate["tbs_certificate"]["subject_public_key_info"])
+    with open("/server-secrets/ipsec.secrets", "w") as fh:
+        fh.write(": %s %s\n" % (
+            "ECDSA" if public_key.algorithm == "ec" else "RSA",
+            const.SELF_KEY_PATH
+        ))
 
     # TODO: use this task to send notification emails maybe?
     click.echo("Finished starting up")
@@ -491,173 +558,6 @@ def pinecone_session(): pass
 def entry_point(): pass
 
 
-@click.command("openvpn", help="Start OpenVPN server process")
-@click.option("--local", "-l", default="0.0.0.0", help="OpenVPN listening address, defaults to all interfaces")
-@click.option("--proto", "-t", default="udp", type=click.Choice(["udp", "tcp"]), help="OpenVPN transport protocol, UDP by default")
-@click.option("--client-subnet-slot", "-s", type=int, help="Client subnet slot index")
-@waitfile(const.SELF_CERT_PATH)
-def pinecone_serve_openvpn(local, proto, client_subnet_slot):
-    from pinecrypt.server import config
-    # TODO: Generate (per-client configs) from MongoDB
-    executable = "/usr/sbin/openvpn"
-
-    args = executable,
-    slot4 = const.CLIENT_SUBNET4_SLOTS[client_subnet_slot]
-    args += "--server", str(slot4.network_address), str(slot4.netmask),
-    if const.CLIENT_SUBNET6:
-        args += "--server-ipv6", str(const.CLIENT_SUBNET6_SLOTS[client_subnet_slot]),
-    args += "--local", local
-
-    # Support only two modes TCP 443 and UDP 1194
-    if proto == "tcp":
-        args += "--dev", "tuntcp0",
-        args += "--port-share", "127.0.0.1", "1443",
-        args += "--proto", "tcp-server",
-        args += "--port", "443",
-        args += "--socket-flags", "TCP_NODELAY",
-        args += "--management", "127.0.0.1", "7506",
-        instance = "%s-openvpn-tcp-443" % const.FQDN
-    else:
-        args += "--dev", "tunudp0",
-        args += "--proto", "udp",
-        args += "--port", "1194",
-        args += "--management", "127.0.0.1", "7505",
-        instance = "%s-openvpn-udp-1194" % const.FQDN
-    args += "--setenv", "instance", instance
-    db.certificates.update_many({
-        "instance": instance
-    }, {
-        "$unset": {
-            "ip": "",
-            "instance": "",
-        }
-    })
-
-    # Send keep alive packets, mainly for UDP
-    args += "--keepalive", "60", "120",
-
-    args += "--opt-verify",
-
-    args += "--key", const.SELF_KEY_PATH
-    args += "--cert", const.SELF_CERT_PATH
-    args += "--ca", const.AUTHORITY_CERTIFICATE_PATH
-
-    if const.PUSH_SUBNETS:
-        args += "--push", "route-metric 1000"
-    for subnet in const.PUSH_SUBNETS:
-        if subnet.version == 4:
-            args += "--push", "route %s %s" % (subnet.network_address, subnet.netmask),
-        elif subnet.version == 6:
-            if not const.CLIENT_SUBNET6:
-                raise ValueError("Can't push IPv6 routes if no IPv6 client subnet is configured")
-            args += "--push", "route-ipv6 %s" % subnet
-        else:
-            raise NotImplementedError()
-
-    # TODO: Figure out how to do dhparam without blocking initially
-    if os.path.exists(const.DHPARAM_PATH):
-        args += "--dh", const.DHPARAM_PATH
-    else:
-        args += "--dh", "none"
-
-    # For more info see: openvpn --show-tls
-    args += "--tls-version-min", config.get("Globals", "OPENVPN_TLS_VERSION_MIN")["value"]
-    args += "--tls-ciphersuites", config.get("Globals", "OPENVPN_TLS_CIPHERSUITES")["value"],  # Used by TLS 1.3
-    args += "--tls-cipher", config.get("Globals", "OPENVPN_TLS_CIPHER")["value"],  # Used by TLS 1.2
-
-    # Data channel encryption parameters
-    # TODO: Rename to --data-cipher when OpenVPN 2.5 becomes available
-    args += "--cipher", config.get("Globals", "OPENVPN_CIPHER")["value"]
-    args += "--auth", config.get("Globals", "OPENVPN_AUTH")["value"]
-
-    # Just to sanity check ourselves
-    args += "--tls-cert-profile", "preferred",
-
-    # Disable cipher negotiation since we know what we want
-    args += "--ncp-disable",
-
-    args += "--script-security", "2",
-    args += "--learn-address", "/helpers/openvpn-learn-address.py"
-    args += "--client-connect", "/helpers/openvpn-client-connect.py"
-    args += "--verb", "0",
-
-    logger.info("Executing: %s" % (" ".join(args)))
-    os.execv(executable, args)
-
-
-@click.command("strongswan", help="Start StrongSwan")
-@click.option("--client-subnet-slot", "-s", type=int, help="Client subnet slot index")
-@waitfile(const.SELF_CERT_PATH)
-def pinecone_serve_strongswan(client_subnet_slot):
-    from pinecrypt.server import config
-    slots = []
-    slots.append(const.CLIENT_SUBNET4_SLOTS[client_subnet_slot])
-    if const.CLIENT_SUBNET6:
-        slots.append(const.CLIENT_SUBNET6_SLOTS[client_subnet_slot])
-
-    with open("/etc/ipsec.conf", "w") as fh:
-        fh.write("config setup\n")
-        fh.write("  strictcrlpolicy=yes\n")
-        fh.write("  charondebug=\"cfg 2\"\n")
-
-        fh.write("\n")
-        fh.write("ca authority\n")
-        fh.write("  auto=add\n")
-        fh.write("  cacert=%s\n" % const.AUTHORITY_CERTIFICATE_PATH)
-        fh.write("\n")
-        fh.write("conn s2c\n")
-        fh.write("  auto=add\n")
-        fh.write("  keyexchange=ikev2\n")
-
-        fh.write("  left=%s\n" % const.AUTHORITY_NAMESPACE)
-        fh.write("  leftsendcert=always\n")
-        fh.write("  leftallowany=yes\n")  # For load-balancing
-        fh.write("  leftcert=%s\n" % const.SELF_CERT_PATH)
-        if const.PUSH_SUBNETS:
-            fh.write("  leftsubnet=%s\n" % ",".join([str(j) for j in const.PUSH_SUBNETS]))
-        fh.write("  leftupdown=/helpers/updown.py\n")
-
-        fh.write("  right=%any\n")
-        fh.write("  rightsourceip=%s\n" % ",".join([str(j) for j in slots]))
-        fh.write("  ike=%s!\n" % config.get("Globals", "STRONGSWAN_IKE")["value"])
-        fh.write("  esp=%s!\n" % config.get("Globals", "STRONGSWAN_ESP")["value"])
-    with open("/etc/ipsec.conf") as fh:
-        print(fh.read())
-
-    # Why do you do this StrongSwan?! You will parse the cert anyway,
-    # why do I need to distinguish ECDSA vs RSA in config?!
-    with open(const.SELF_CERT_PATH, "rb") as fh:
-        certificate_buf = fh.read()
-        header, _, certificate_der_bytes = pem.unarmor(certificate_buf)
-        certificate = x509.Certificate.load(certificate_der_bytes)
-        public_key = asymmetric.load_public_key(certificate["tbs_certificate"]["subject_public_key_info"])
-    with open("/etc/ipsec.secrets", "w") as fh:
-        fh.write(": %s %s\n" % (
-            "ECDSA" if public_key.algorithm == "ec" else "RSA",
-            const.SELF_KEY_PATH
-        ))
-    executable = "/usr/sbin/ipsec"
-    args = executable, "start", "--nofork"
-    logger.info("Executing: %s" % (" ".join(args)))
-    instance = "%s-ipsec" % const.FQDN
-
-    db.certificates.update_many({
-        "instance": instance
-    }, {
-        "$unset": {
-            "ip": "",
-            "instance": "",
-        }
-    })
-
-    # TODO: Find better way to push env vars to updown script
-    with open("/instance", "w") as fh:
-        fh.write(instance)
-    os.execv(executable, args)
-
-
-pinecone_serve.add_command(pinecone_serve_openvpn)
-pinecone_serve.add_command(pinecone_serve_strongswan)
 pinecone_serve.add_command(pinecone_serve_backend)
 pinecone_serve.add_command(pinecone_serve_ocsp_responder)
 pinecone_serve.add_command(pinecone_serve_events)

@@ -81,6 +81,7 @@ def self_enroll(skip_notify=False):
     cert, buf = sign(mongo_id=id, skip_notify=skip_notify, overwrite=True,
         profile="Gateway", namespace=const.AUTHORITY_NAMESPACE)
 
+    os.umask(0o133)
     with open(const.SELF_CERT_PATH + ".part", "wb") as fh:
         fh.write(buf)
     os.rename(const.SELF_CERT_PATH + ".part", const.SELF_CERT_PATH)

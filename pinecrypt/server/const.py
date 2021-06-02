@@ -6,7 +6,6 @@ import socket
 import sys
 from datetime import timedelta
 from ipaddress import ip_network
-from math import log, ceil
 
 RE_USERNAME = r"^[a-z][a-z0-9]+$"
 RE_FQDN = r"^(([a-z0-9]|[a-z0-9][a-z0-9\-_]*[a-z0-9])\.)+([a-z0-9]|[a-z0-9][a-z0-9\-_]*[a-z0-9])?$"
@@ -46,11 +45,11 @@ CURVE_NAME = "secp384r1"
 # Kerberos-like clock skew tolerance
 CLOCK_SKEW_TOLERANCE = timedelta(minutes=5)
 
-AUTHORITY_PRIVATE_KEY_PATH = "/var/lib/certidude/authority-secrets/ca_key.pem"
-AUTHORITY_CERTIFICATE_PATH = "/var/lib/certidude/server-secrets/ca_cert.pem"
-SELF_CERT_PATH = "/var/lib/certidude/server-secrets/self_cert.pem"
-SELF_KEY_PATH = "/var/lib/certidude/server-secrets/self_key.pem"
-DHPARAM_PATH = "/var/lib/certidude/server-secrets/dhparam.pem"
+AUTHORITY_PRIVATE_KEY_PATH = "/authority-secrets/ca_key.pem"
+AUTHORITY_CERTIFICATE_PATH = "/server-secrets/ca_cert.pem"
+SELF_CERT_PATH = "/server-secrets/self_cert.pem"
+SELF_KEY_PATH = "/server-secrets/self_key.pem"
+DHPARAM_PATH = "/server-secrets/dhparam.pem"
 BUILDER_TARBALLS = ""
 
 FQDN = socket.getfqdn()
@@ -114,7 +113,7 @@ TOKEN_OVERWRITE_PERMITTED = os.getenv("TOKEN_OVERWRITE_PERMITTED")
 AUTHENTICATION_BACKENDS = set(["ldap"])
 MAIL_SUFFIX = os.getenv("MAIL_SUFFIX")
 
-KERBEROS_KEYTAB = os.getenv("KERBEROS_KEYTAB", "/var/lib/certidude/server-secrets/krb5.keytab")
+KERBEROS_KEYTAB = os.getenv("KERBEROS_KEYTAB", "/server-secrets/krb5.keytab")
 KERBEROS_REALM = os.getenv("KERBEROS_REALM")
 LDAP_AUTHENTICATION_URI = os.getenv("LDAP_AUTHENTICATION_URI")
 LDAP_GSSAPI_CRED_CACHE = os.getenv("LDAP_GSSAPI_CRED_CACHE", "/run/certidude/krb5cc")
@@ -158,13 +157,9 @@ REQUEST_SUBMISSION_ALLOWED = os.getenv("REQUEST_SUBMISSION_ALLOWED")
 REVOCATION_LIST_LIFETIME = os.getenv("REVOCATION_LIST_LIFETIME")
 
 PUSH_SUBNETS = [ip_network(j) for j in os.getenv("PUSH_SUBNETS", "").replace(" ", ",").split(",") if j]
-
 CLIENT_SUBNET4 = ip_network(os.getenv("CLIENT_SUBNET4", "192.168.33.0/24"))
 CLIENT_SUBNET6 = ip_network(os.getenv("CLIENT_SUBNET6")) if os.getenv("CLIENT_SUBNET6") else None
 CLIENT_SUBNET_SLOT_COUNT = int(os.getenv("CLIENT_SUBNET_COUNT", 4))
-divisions = ceil(log(CLIENT_SUBNET_SLOT_COUNT) / log(2))
-CLIENT_SUBNET4_SLOTS = list(CLIENT_SUBNET4.subnets(divisions))
-CLIENT_SUBNET6_SLOTS = list(CLIENT_SUBNET6.subnets(divisions)) if CLIENT_SUBNET6 else []
 
 if CLIENT_SUBNET4.netmask == str("255.255.255.255"):
     raise ValueError("Invalid client subnet specification: %s" % CLIENT_SUBNET4)
