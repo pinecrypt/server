@@ -252,8 +252,8 @@ def pinecone_provision():
         yield "-A INPUT -j INBOUND_BLOCKED"
 
         yield ":FORWARD DROP [0:0]"
-        yield "-A FORWARD -i tunudp0 -j INBOUND_CLIENT -m comment --comment \"Inbound traffic from OpenVPN UDP clients\""
-        yield "-A FORWARD -i tuntcp0 -j INBOUND_CLIENT -m comment --comment \"Inbound traffic from OpenVPN TCP clients\""
+        yield "-A FORWARD -i tun0 -j INBOUND_CLIENT -m comment --comment \"Inbound traffic from OpenVPN UDP clients\""
+        yield "-A FORWARD -i tun1 -j INBOUND_CLIENT -m comment --comment \"Inbound traffic from OpenVPN TCP clients\""
         yield "-A FORWARD -m policy --dir in --pol ipsec  -j INBOUND_CLIENT -m comment --comment \"Inbound traffic from IPSec clients\""
         yield "-A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j OUTBOUND_CLIENT -m comment --comment \"Outbound traffic to clients\""
         yield "-A FORWARD -j %s -m comment --comment \"Default policy\"" % default_policy
