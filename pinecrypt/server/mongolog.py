@@ -18,7 +18,7 @@ class LogHandler(logging.Handler):
         d["process"] = record.process
         d["thread"] = record.thread
         d["thread_name"] = record.threadName
-        db.eventlog.insert(d)
+        db.eventlog.insert(d, w=1)
 
 def register():
     for j in logging.Logger.manager.loggerDict.values():
