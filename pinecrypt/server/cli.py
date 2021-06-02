@@ -267,7 +267,8 @@ def pinecone_provision():
         yield ":INPUT ACCEPT [0:0]"
         yield ":OUTPUT ACCEPT [0:0]"
         yield ":POSTROUTING ACCEPT [0:0]"
-        yield "-A POSTROUTING -j MASQUERADE"
+        if not const.DISABLE_MASQUERADE:
+            yield "-A POSTROUTING -j MASQUERADE"
         yield "COMMIT"
 
     with open("/tmp/rules4", "w") as fh:
