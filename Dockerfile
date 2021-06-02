@@ -1,5 +1,5 @@
 FROM ubuntu:20.04
-ENV container docker
+MAINTAINER Pinecrypt Labs <info@pinecrypt.com>
 ENV PYTHONUNBUFFERED=1
 ENV LC_ALL C.UTF-8
 ENV DEBIAN_FRONTEND noninteractive
@@ -20,7 +20,6 @@ COPY requirements.txt /src/
 RUN pip3 install --no-cache-dir -r requirements.txt
 COPY config/strongswan.conf /etc/strongswan.conf
 COPY pinecrypt/. /src/pinecrypt/
-COPY helpers /helpers/
 COPY MANIFEST.in setup.py README.md /src/
 COPY misc/. /src/misc/
 RUN python3 -m compileall .
