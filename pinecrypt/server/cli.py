@@ -171,13 +171,6 @@ def pinecone_housekeeping_expiration():
     # TODO: Send separate e-mails to subjects
 
 
-@click.command("ocsp-responder")
-@waitfile(const.AUTHORITY_CERTIFICATE_PATH)
-def pinecone_serve_ocsp_responder():
-    from pinecrypt.server.api.ocsp import app
-    app.run(port=5001, debug=const.DEBUG)
-
-
 @click.command("events")
 def pinecone_serve_events():
     from pinecrypt.server.api.events import app
@@ -560,7 +553,6 @@ def entry_point(): pass
 
 
 pinecone_serve.add_command(pinecone_serve_backend)
-pinecone_serve.add_command(pinecone_serve_ocsp_responder)
 pinecone_serve.add_command(pinecone_serve_events)
 pinecone_serve.add_command(pinecone_serve_builder)
 pinecone_session.add_command(pinecone_session_list)
