@@ -110,7 +110,7 @@ TOKEN_LIFETIME = 3600 * 24
 TOKEN_OVERWRITE_PERMITTED = os.getenv("TOKEN_OVERWRITE_PERMITTED")
 # TODO: Check if we don't have base or servers
 
-AUTHENTICATION_BACKENDS = set(["ldap"])
+AUTHENTICATION_BACKENDS = set(["ldap", "kerberos"])
 MAIL_SUFFIX = os.getenv("MAIL_SUFFIX")
 
 KERBEROS_KEYTAB = os.getenv("KERBEROS_KEYTAB", "/server-secrets/krb5.keytab")

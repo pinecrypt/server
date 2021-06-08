@@ -99,17 +99,16 @@ def authenticate(optional=False):
                         req.env["PATH_INFO"], req.context["remote"]["addr"])
                     raise falcon.HTTPUnauthorized("Unauthorized",
                         "No Kerberos ticket offered, are you sure you've logged in with domain user account?",
-                        ["Negotiate"])
+                        challenges=["Negotiate"])
                 else:
                     logger.debug("No credentials offered while attempting to access %s from %s",
                         req.env["PATH_INFO"], req.context["remote"]["addr"])
-                    #falcon 3.0 login fix
-                    raise falcon.HTTPUnauthorized(title="Unauthorized", description="Please authenticate", challenges=("Basic",))
+                    raise falcon.HTTPUnauthorized("Unauthorized", "Please authenticate", challenges=["Basic"])
 
             if kerberized:
                 if not req.auth.startswith("Negotiate "):
                     raise falcon.HTTPUnauthorized("Unauthorized",
-                        "Bad header, expected Negotiate", ["Negotiate"])
+                        "Bad header, expected Negotiate", challenges=["Negotiate"])
 
                 os.environ["KRB5_KTNAME"] = const.KERBEROS_KEYTAB
 
@@ -163,7 +162,7 @@ def authenticate(optional=False):
 
             else:
                 if not req.auth.startswith("Basic "):
-                    raise falcon.HTTPUnauthorized("Forbidden", "Bad header, expected Basic", ("Basic",))
+                    raise falcon.HTTPUnauthorized("Unauthorized", "Bad header, expected Basic", challenges=["Basic"])
 
                 basic, token = req.auth.split(" ", 1)
                 user, passwd = b64decode(token).decode("utf-8").split(":", 1)
@@ -186,7 +185,7 @@ def authenticate(optional=False):
                 except ldap.INVALID_CREDENTIALS:
                     logger.critical("LDAP bind authentication failed for user %s from  %s",
                         repr(upn), req.context["remote"]["addr"])
-                    raise falcon.HTTPUnauthorized(
+                    raise falcon.HTTPUnauthorized("Unauthorized",
                         description="Please authenticate with %s domain account username" % const.KERBEROS_REALM,
                         challenges=["Basic"])
 
@@ -197,7 +196,7 @@ def authenticate(optional=False):
             try:
                 req.context["user"] = User.objects.get(user)
             except User.DoesNotExist:
-                raise falcon.HTTPUnauthorized("Unauthorized", "Invalid credentials", ("Basic",))
+                raise falcon.HTTPUnauthorized("Unauthorized", "Invalid credentials", challenges=["Basic"])
 
             retval = func(resource, req, resp, *args, **kwargs)
             if conn:
