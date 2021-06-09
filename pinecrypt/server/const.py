@@ -64,7 +64,7 @@ except ValueError:  # If FQDN is not configured
 def getenv_in(key, default, *vals):
     val = os.getenv(key, default)
     if val not in (default,) + vals:
-        raise ValueError("Got %s for %s, expected one of %s" % (repr(val), key, vals))
+        raise ValueError("Got %s for %s, expected one of %s" % (repr(val), key, (default,) + vals))
     return val
 
 
