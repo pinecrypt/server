@@ -16,11 +16,15 @@ from pinecrypt.server.user import User
 from pinecrypt.server import const, errors, db
 from prometheus_client import Counter, Histogram
 
-clock_skew = Histogram("pinecrypt_authority_clock_skew",
-    "Histogram of client-server clock skew", ["method", "path", "passed"],
+clock_skew = Histogram(
+    "pinecrypt_gateway_clock_skew",
+    "Histogram of client-server clock skew.",
+    ["method", "path", "passed"],
     buckets=(0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0, 500.0, 1000.0, 5000.0))
-whitelist_blocked_requests = Counter("pinecrypt_authority_whitelist_blocked_requests",
-    "Requests blocked by whitelists", ["method", "path"])
+whitelist_blocked_requests = Counter(
+    "pinecrypt_gateway_whitelist_blocked_requests",
+    "Requests blocked by whitelists.",
+    ["method", "path"])
 
 logger = logging.getLogger(__name__)
 

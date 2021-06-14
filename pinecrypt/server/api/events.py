@@ -11,10 +11,10 @@ from sanic_prometheus import monitor
 from bson.objectid import ObjectId
 
 
-streams_opened = Counter("pinecrypt_events_stream_opened",
-    "Event stream opened count")
-events_emitted = Counter("pinecrypt_events_emitted",
-    "Events emitted count")
+streams_opened = Counter("pinecrypt_gateway_streams_started",
+    "Total number event stream has been opened.")
+events_emitted = Counter("pinecrypt_gateway_events_emitted",
+    "Total number of events emitted via event streams.")
 
 
 app = Sanic("events")
