@@ -102,7 +102,7 @@ AUTHORITY_CRL_ENABLED = os.getenv("AUTHORITY_CRL_ENABLED", False)
 AUTHORITY_CRL_URL = "http://%s/api/revoked/" % AUTHORITY_NAMESPACE
 AUTHORITY_OCSP_URL = "http://%s/api/ocsp/" % AUTHORITY_NAMESPACE
 AUTHORITY_OCSP_DISABLED = os.getenv("AUTHORITY_OCSP_DISABLED", False)
-AUTHORITY_KEYTYPE = getenv_in("AUTHORITY_KEYTYPE", "ec", "rsa")
+AUTHORITY_KEYTYPE = getenv_in("AUTHORITY_KEYTYPE", "rsa", "ec")
 
 # Tokens
 TOKEN_URL = "https://%(authority_name)s/#action=enroll&title=dev.lan&token=%(token)s&subject=%(subject_username)s&protocols=%(protocols)s"
