@@ -411,6 +411,7 @@ def sign(profile, skip_notify=False, overwrite=False, signer=None, namespace=con
     d = {
         "common_name": common_name,
         "status": "signed",
+        "disabled": False,
         "serial_number": "%x" % builder.serial_number,
         "signed": builder.begin_date,
         "expires": builder.end_date,

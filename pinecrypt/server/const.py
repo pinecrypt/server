@@ -30,9 +30,8 @@ IMAGE_BUILDER_PROFILES = []
 SERVICE_PROTOCOLS = ["ikev2", "openvpn"]
 
 MONGO_URI = os.getenv("MONGO_URI")
-REPLICAS = os.getenv("REPLICAS")
+REPLICAS = [j for j in os.getenv("REPLICAS", "").split(",") if j]
 if REPLICAS:
-    REPLICAS = REPLICAS.split(",")
     if MONGO_URI:
         raise ValueError("Simultanously specifying MONGO_URI and REPLICAS doesn't make sense")
     MONGO_URI = "mongodb://%s/default?replicaSet=rs0" % (",".join(["%s:27017" % j for j in REPLICAS]))
@@ -147,7 +146,6 @@ CRL_SUBNETS = getenv_subnets("AUTH_CRL_SUBNETS", "0.0.0.0/0 ::/0")
 OVERWRITE_SUBNETS = getenv_subnets("AUTH_OVERWRITE_SUBNETS", "")
 MACHINE_ENROLLMENT_SUBNETS = getenv_subnets("AUTH_MACHINE_ENROLLMENT_SUBNETS", "0.0.0.0/0 ::/0")
 KERBEROS_SUBNETS = getenv_subnets("AUTH_KERBEROS_SUBNETS", "")
-PROMETHEUS_SUBNETS = getenv_subnets("PROMETHEUS_SUBNETS", "")
 
 BOOTSTRAP_TEMPLATE = ""
 USER_ENROLLMENT_ALLOWED = True
@@ -176,6 +174,3 @@ SESSION_COOKIE = "sha512brownies"
 SESSION_AGE = 3600
 
 SECRET_STORAGE = getenv_in("SECRET_STORAGE", "fs", "db")
-
-DISABLE_FIREWALL = os.getenv("DISABLE_FIREWALL")
-DISABLE_MASQUERADE = os.getenv("DISABLE_MASQUERADE")

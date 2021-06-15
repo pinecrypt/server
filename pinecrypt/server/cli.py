@@ -14,7 +14,6 @@ import logging
 import os
 import pymongo
 import signal
-import socket
 import sys
 import pytz
 from asn1crypto import pem, x509
@@ -107,6 +106,36 @@ def pinecone_sign(common_name, overwrite, profile):
     authority.sign(common_name, overwrite=overwrite, profile=profile)
 
 
+@click.command("disable", help="Disable client node or gateway replica temporarily")
+@click.argument("common_name")
+def pinecone_disable(common_name):
+    from pinecrypt.server import db
+    result = db.certificates.update_one({
+        "common_name": common_name
+    }, {
+        "$set": {
+            "disabled": datetime.utcnow()
+        }
+    })
+    if result.matched_count != 1:
+        raise click.ClickException("Invalid common name")
+
+
+@click.command("enable", help="Enable client node or gateway replica")
+@click.argument("common_name")
+def pinecone_enable(common_name):
+    from pinecrypt.server import db
+    result = db.certificates.update_one({
+        "common_name": common_name
+    }, {
+        "$set": {
+            "disabled": False
+        }
+    })
+    if result.matched_count != 1:
+        raise click.ClickException("Invalid common name")
+
+
 @click.command("revoke", help="Revoke certificate")
 @click.option("--reason", "-r", default="key_compromise",
     help="Revocation reason, one of: key_compromise affiliation_changed superseded cessation_of_operation privilege_withdrawn")
@@ -185,110 +214,6 @@ def pinecone_serve_builder():
 
 @click.command("provision", help="Provision keys")
 def pinecone_provision():
-    default_policy = "REJECT" if const.DEBUG else "DROP"
-
-    click.echo("Setting up firewall rules")
-    if const.REPLICAS:
-        # TODO: atomic update with `ipset restore`
-        for replica in const.REPLICAS:
-            for fam, _, _, _, addrs in socket.getaddrinfo(replica, None):
-                if fam == 10:
-                    os.system("ipset add ipset6-mongo-replicas %s" % addrs[0])
-                elif fam == 2:
-                    os.system("ipset add ipset4-mongo-replicas %s" % addrs[0])
-
-    os.system("ipset create -exist -quiet ipset4-client-ingress hash:ip timeout 3600 counters")
-    os.system("ipset create -exist -quiet ipset6-client-ingress hash:ip family inet6 timeout 3600 counters")
-
-    os.system("ipset create -exist -quiet ipset4-client-egress hash:ip timeout 3600 counters")
-    os.system("ipset create -exist -quiet ipset6-client-egress hash:ip family inet6 timeout 3600 counters")
-
-    os.system("ipset create -exist -quiet ipset4-mongo-replicas hash:ip")
-    os.system("ipset create -exist -quiet ipset6-mongo-replicas hash:ip family inet6")
-
-    os.system("ipset create -exist -quiet ipset4-prometheus-subnets hash:net")
-    os.system("ipset create -exist -quiet ipset6-prometheus-subnets hash:net family inet6")
-
-    for subnet in const.PROMETHEUS_SUBNETS:
-        os.system("ipset add -exist -quiet ipset%d-prometheus-subnets %s" % (subnet.version, subnet))
-
-    def g():
-        yield "*filter"
-        yield ":INBOUND_BLOCKED - [0:0]"
-        yield "-A INBOUND_BLOCKED -j %s -m comment --comment \"Default policy\"" % default_policy
-
-        yield ":OUTBOUND_CLIENT - [0:0]"
-        yield "-A OUTBOUND_CLIENT -m set ! --match-set ipset4-client-ingress dst -j SET --add-set ipset4-client-ingress dst"
-        yield "-A OUTBOUND_CLIENT -j ACCEPT"
-
-        yield ":INBOUND_CLIENT - [0:0]"
-        yield "-A INBOUND_CLIENT -m set ! --match-set ipset4-client-ingress src -j SET --add-set ipset4-client-ingress src"
-        yield "-A INBOUND_CLIENT -j ACCEPT"
-
-        yield ":INPUT DROP [0:0]"
-        yield "-A INPUT -i lo -j ACCEPT -m comment --comment \"Allow loopback\""
-        yield "-A INPUT -p icmp -j ACCEPT -m comment --comment \"Allow ping\""
-        yield "-A INPUT -p esp -j ACCEPT -m comment --comment \"Allow ESP traffic\""
-        yield "-A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT -m comment --comment \"Allow returning packets\""
-        yield "-A INPUT -p tcp --dport 22 -j ACCEPT -m comment --comment \"Allow SSH\""
-        yield "-A INPUT -p udp --dport 53 -j ACCEPT -m comment --comment \"Allow GoreDNS over UDP\""
-        yield "-A INPUT -p tcp --dport 53 -j ACCEPT -m comment --comment \"Allow GoreDNS over TCP\""
-        yield "-A INPUT -p tcp --dport 80 -j ACCEPT -m comment --comment \"Allow insecure HTTP\""
-        yield "-A INPUT -p tcp --dport 443 -j ACCEPT -m comment --comment \"Allow HTTPS / OpenVPN TCP\""
-        yield "-A INPUT -p tcp --dport 8443 -j ACCEPT -m comment --comment \"Allow mutually authenticated HTTPS\""
-        yield "-A INPUT -p udp --dport 1194 -j ACCEPT -m comment --comment \"Allow OpenVPN UDP\""
-        yield "-A INPUT -p udp --dport 500 -j ACCEPT -m comment --comment \"Allow IPsec IKE\""
-        yield "-A INPUT -p udp --dport 4500 -j ACCEPT -m comment --comment \"Allow IPsec NAT traversal\""
-        if const.REPLICAS:
-            yield "-A INPUT -p tcp --dport 27017 -j ACCEPT -m set --match-set ipset4-mongo-replicas src -m comment --comment \"Allow MongoDB internode\""
-        yield "-A INPUT -p tcp --dport 9090 -j ACCEPT -m set --match-set ipset4-prometheus-subnets src -m comment --comment \"Allow Prometheus\""
-        yield "-A INPUT -j INBOUND_BLOCKED"
-
-        yield ":FORWARD DROP [0:0]"
-        yield "-A FORWARD -i tun0 -j INBOUND_CLIENT -m comment --comment \"Inbound traffic from OpenVPN UDP clients\""
-        yield "-A FORWARD -i tun1 -j INBOUND_CLIENT -m comment --comment \"Inbound traffic from OpenVPN TCP clients\""
-        yield "-A FORWARD -m policy --dir in --pol ipsec  -j INBOUND_CLIENT -m comment --comment \"Inbound traffic from IPSec clients\""
-        yield "-A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j OUTBOUND_CLIENT -m comment --comment \"Outbound traffic to clients\""
-        yield "-A FORWARD -j %s -m comment --comment \"Default policy\"" % default_policy
-
-        yield ":OUTPUT DROP [0:0]"
-        yield "-A OUTPUT -j ACCEPT"
-        yield "COMMIT"
-
-        yield "*nat"
-        yield ":PREROUTING ACCEPT [0:0]"
-        yield ":INPUT ACCEPT [0:0]"
-        yield ":OUTPUT ACCEPT [0:0]"
-        yield ":POSTROUTING ACCEPT [0:0]"
-        if not const.DISABLE_MASQUERADE:
-            yield "-A POSTROUTING -j MASQUERADE"
-        yield "COMMIT"
-
-    with open("/tmp/rules4", "w") as fh:
-        for line in g():
-            fh.write(line)
-            fh.write("\n")
-
-    if not const.DISABLE_FIREWALL:
-        os.system("iptables-restore < /tmp/rules4")
-        os.system("sed -e 's/ipset4/ipset6/g' -e 's/p icmp/p ipv6-icmp/g' /tmp/rules4 > /tmp/rules6")
-        os.system("ip6tables-restore < /tmp/rules6")
-        os.system("sysctl -w net.ipv6.conf.all.forwarding=1")
-        os.system("sysctl -w net.ipv6.conf.default.forwarding=1")
-        os.system("sysctl -w net.ipv4.ip_forward=1")
-
-    if const.REPLICAS:
-        click.echo("Provisioning MongoDB replicaset")
-        # WTF https://github.com/docker-library/mongo/issues/339
-        c = pymongo.MongoClient("localhost", 27017)
-        config = {"_id": "rs0", "members": [
-            {"_id": index, "host": "%s:27017" % hostname} for index, hostname in enumerate(const.REPLICAS)]}
-        print("Provisioning MongoDB replicaset: %s" % repr(config))
-        try:
-            c.admin.command("replSetInitiate", config)
-        except pymongo.errors.OperationFailure:
-            print("Looks like it's already initialized")
-            pass
 
     # Expand variables
     distinguished_name = cn_to_dn(const.AUTHORITY_COMMON_NAME)
@@ -432,9 +357,22 @@ def pinecone_provision():
             const.SELF_KEY_PATH
         ))
 
+    if const.REPLICAS:
+        click.echo("Provisioning MongoDB replicaset")
+        # WTF https://github.com/docker-library/mongo/issues/339
+        c = pymongo.MongoClient("localhost", 27017)
+        config = {"_id": "rs0", "members": [
+            {"_id": index, "host": "%s:27017" % hostname} for index, hostname in enumerate(const.REPLICAS)]}
+        print("Provisioning MongoDB replicaset: %s" % repr(config))
+        try:
+            c.admin.command("replSetInitiate", config)
+        except pymongo.errors.OperationFailure:
+            print("Looks like it's already initialized")
+            pass
+
     # TODO: use this task to send notification emails maybe?
     click.echo("Finished starting up")
-    sleep(86400)
+    sleep(999999999)
 
 
 @click.command("backend", help="Serve main backend")
@@ -572,6 +510,8 @@ entry_point.add_command(pinecone_test)
 entry_point.add_command(pinecone_log)
 entry_point.add_command(pinecone_provision)
 entry_point.add_command(pinecone_session)
+entry_point.add_command(pinecone_disable)
+entry_point.add_command(pinecone_enable)
 
 if __name__ == "__main__":
     entry_point()

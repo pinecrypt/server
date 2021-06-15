@@ -9,7 +9,7 @@ RUN echo force-unsafe-io > /etc/dpkg/dpkg.cfg.d/docker-apt-speedup \
  && apt-get install -y -qq \
     bash build-essential python3-dev cython3 libffi-dev libssl-dev \
     libkrb5-dev ldap-utils libsasl2-modules-gssapi-mit libsasl2-dev libldap2-dev \
-    python python3-pip python3-cffi iptables ipset \
+    python python3-pip python3-cffi \
     libncurses5-dev gawk wget unzip git rsync \
  && apt-get clean \
  && rm /etc/dpkg/dpkg.cfg.d/docker-apt-speedup
