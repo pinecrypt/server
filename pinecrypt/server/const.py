@@ -31,11 +31,8 @@ SERVICE_PROTOCOLS = ["ikev2", "openvpn"]
 
 MONGO_URI = os.getenv("MONGO_URI")
 REPLICAS = [j for j in os.getenv("REPLICAS", "").split(",") if j]
-if REPLICAS:
-    if MONGO_URI:
-        raise ValueError("Simultanously specifying MONGO_URI and REPLICAS doesn't make sense")
-    MONGO_URI = "mongodb://%s/default?replicaSet=rs0" % (",".join(["%s:27017" % j for j in REPLICAS]))
-elif not MONGO_URI:
+
+if not MONGO_URI:
     MONGO_URI = "mongodb://127.0.0.1:27017/default?replicaSet=rs0"
 
 KEY_SIZE = 4096
@@ -169,6 +166,8 @@ if "%s" not in LDAP_ADMIN_FILTER:
 
 AUDIT_EMAIL = os.getenv("AUDIT_EMAIL")
 DEBUG = bool(os.getenv("DEBUG"))
+
+INIT_MONGO = bool(os.getenv("INIT_MONGO"))
 
 SESSION_COOKIE = "sha512brownies"
 SESSION_AGE = 3600

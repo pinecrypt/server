@@ -16,6 +16,7 @@ import pymongo
 import signal
 import sys
 import pytz
+import ipaddress
 from asn1crypto import pem, x509
 from certbuilder import CertificateBuilder, pem_armor_certificate
 from datetime import datetime, timedelta
@@ -215,6 +216,35 @@ def pinecone_serve_builder():
 @click.command("provision", help="Provision keys")
 def pinecone_provision():
 
+    #First thing init mongo db
+    click.echo("Provisioning MongoDB replicaset")
+    # WTF https://github.com/docker-library/mongo/issues/339
+    c = pymongo.MongoClient("localhost", 27017)
+
+    if const.INIT_MONGO:
+        mongo_uri = pymongo.uri_parser.parse_uri(const.MONGO_URI)
+
+        for ip_port in mongo_uri["nodelist"]:
+            try:
+                ipaddress.ip_address(ip_port[0])
+            except ValueError:
+                click.echo("Right now mongo address must be IP, no domin names allowed")
+                raise ValueError("Right now mongo address must be IP, no domin names allowed like %s" % ip_port[0])
+
+        config = {"_id": "rs0", "members": [
+            {"_id": index, "host": "%s:%s" % (ip_port[0], ip_port[1])} for index, ip_port in enumerate(mongo_uri["nodelist"])]}
+
+
+       #     config = {"_id":"rs0", "members": [
+       #         {"_id": 0, "host": "127.0.0.1:27017"}]}
+        print("Provisioning MongoDB replicaset: %s" % repr(config))
+
+        try:
+            c.admin.command("replSetInitiate", config)
+        except pymongo.errors.OperationFailure:
+            print("Looks like it's already initialized")
+            pass
+
     # Expand variables
     distinguished_name = cn_to_dn(const.AUTHORITY_COMMON_NAME)
 
@@ -356,19 +386,6 @@ def pinecone_provision():
             "ECDSA" if public_key.algorithm == "ec" else "RSA",
             const.SELF_KEY_PATH
         ))
-
-    if const.REPLICAS:
-        click.echo("Provisioning MongoDB replicaset")
-        # WTF https://github.com/docker-library/mongo/issues/339
-        c = pymongo.MongoClient("localhost", 27017)
-        config = {"_id": "rs0", "members": [
-            {"_id": index, "host": "%s:27017" % hostname} for index, hostname in enumerate(const.REPLICAS)]}
-        print("Provisioning MongoDB replicaset: %s" % repr(config))
-        try:
-            c.admin.command("replSetInitiate", config)
-        except pymongo.errors.OperationFailure:
-            print("Looks like it's already initialized")
-            pass
 
     # TODO: use this task to send notification emails maybe?
     click.echo("Finished starting up")
