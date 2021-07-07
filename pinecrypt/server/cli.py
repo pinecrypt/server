@@ -406,6 +406,7 @@ def pinecone_serve_backend():
     from pinecrypt.server.api.revoked import RevokedCertificateDetailResource
     from pinecrypt.server.api.log import LogResource
     from pinecrypt.server.api.revoked import RevocationListResource
+    from pinecrypt.server.api.access import DisableEnableAccessToInstance
 
     app = falcon.App(middleware=NormalizeMiddleware())
     app.req_options.strip_url_path_trailing_slash = True
@@ -424,6 +425,7 @@ def pinecone_serve_backend():
     app.add_route("/api/revoked/{serial_number}", RevokedCertificateDetailResource())
     app.add_route("/api/log", LogResource())
     app.add_route("/api/revoked", RevocationListResource())
+    app.add_route("/api/toggleaccess/id/{id}", DisableEnableAccessToInstance())
 
     token_resource = None
     token_manager = None

@@ -3,7 +3,7 @@ import falcon
 import logging
 import json
 import hashlib
-from pinecrypt.server import authority, errors
+from pinecrypt.server import authority, errors, db
 from pinecrypt.server.decorators import csrf_protection
 from .utils.firewall import login_required, authorize_admin
 

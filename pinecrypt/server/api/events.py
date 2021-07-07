@@ -66,6 +66,7 @@ async def view_event(request):
             async for event in stream:
 
                 if event.get("ns").get("coll") == "certidude_certificates":
+
                     if event.get("operationType") == "insert" and event["fullDocument"].get("status") == "csr":
                         await resp.write("event: request-submitted\ndata: %s\n\n" % str(event["documentKey"].get("_id")))
                         events_emitted.inc()
@@ -92,6 +93,10 @@ async def view_event(request):
 
                     if event.get("operationType") == "update" and "attributes" in event.get("updateDescription").get("updatedFields"):
                         await resp.write("event: attribute-update\ndata: %s\n\n" % str(event["documentKey"].get("_id")))
+                        events_emitted.inc()
+
+                    if event.get("operationType") == "update" and "disabled" in event.get("updateDescription").get("updatedFields"):
+                        await resp.write("event: instance-access-update\ndata: %s\n\n" % str(event["documentKey"].get("_id")))
                         events_emitted.inc()
 
                 if event.get("ns").get("coll") == "certidude_logs":

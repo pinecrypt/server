@@ -92,6 +92,7 @@ class SessionResource(object):
                 # TODO: dedup
                 serialized = dict(
                     id=str(cert_doc["_id"]),
+                    disabled=cert_doc["disabled"],
                     serial="%x" % cert.serial_number,
                     organizational_unit=cert.subject.native.get("organizational_unit_name"),
                     common_name=cert_doc["common_name"],
