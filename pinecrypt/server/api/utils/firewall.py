@@ -1,6 +1,4 @@
-
 import falcon
-import logging
 import binascii
 import click
 import gssapi
@@ -28,6 +26,7 @@ whitelist_blocked_requests = Counter(
     ["method", "path"])
 
 logger = LogHandler()
+
 
 def whitelist_subnets(subnets):
     """
@@ -93,8 +92,8 @@ def authenticate(optional=False):
                     if req.context["remote"]["addr"] in subnet:
                         kerberized = True
 
-            if not req.auth: # no credentials provided
-                if optional: # optional allowed
+            if not req.auth:  # no credentials provided
+                if optional:  # optional allowed
                     req.context["user"] = None
                     return func(resource, req, resp, *args, **kwargs)
 
@@ -213,8 +212,10 @@ def authenticate(optional=False):
 def login_required(func):
     return authenticate()(func)
 
+
 def login_optional(func):
     return authenticate(optional=True)(func)
+
 
 def authorize_admin(func):
     @whitelist_subnets(const.ADMIN_SUBNETS)
@@ -231,6 +232,7 @@ def authorize_server(func):
     Make sure the request originator has a certificate with server flags
     """
     from asn1crypto import pem, x509
+
     def wrapped(resource, req, resp, *args, **kwargs):
         buf = req.get_header("X-SSL-CERT")
         if not buf:
@@ -281,7 +283,7 @@ def cookie_login(func):
         }, {
             "$set": {
                 "last_seen": now,
-           }
+            }
         })
         return func(resource, req, resp, *args, **kwargs)
     return wrapped
