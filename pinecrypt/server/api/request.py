@@ -8,11 +8,12 @@ from asn1crypto.csr import CertificationRequest
 from pinecrypt.server import const, errors, authority
 from pinecrypt.server.decorators import csrf_protection, MyEncoder
 from pinecrypt.server.user import DirectoryConnection
+from pinecrypt.server.mongolog import LogHandler
 from oscrypto import asymmetric
 from .utils.firewall import whitelist_subnets, whitelist_content_types, \
     login_required, login_optional, authorize_admin, validate_clock_skew
 
-logger = logging.getLogger(__name__)
+logger = LogHandler()
 
 """
 openssl genrsa -out test.key 1024

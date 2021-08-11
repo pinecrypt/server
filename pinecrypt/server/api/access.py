@@ -6,9 +6,9 @@ from pinecrypt.server import authority, errors, db
 from bson.objectid import ObjectId
 from pinecrypt.server.decorators import csrf_protection
 from .utils.firewall import login_required, authorize_admin
+from pinecrypt.server.mongolog import LogHandler
 
-logger = logging.getLogger(__name__)
-
+logger = LogHandler()
 
 class DisableEnableAccessToInstance(object):
     @csrf_protection

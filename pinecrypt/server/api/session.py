@@ -4,9 +4,9 @@ from pinecrypt.server import authority, const, config
 from pinecrypt.server.decorators import serialize, csrf_protection
 from pinecrypt.server.user import User
 from .utils.firewall import login_required, authorize_admin, register_session
+from pinecrypt.server.mongolog import LogHandler
 
-logger = logging.getLogger(__name__)
-
+logger = LogHandler()
 
 class CertificateAuthorityResource(object):
     def on_get(self, req, resp):

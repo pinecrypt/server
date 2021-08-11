@@ -3,9 +3,10 @@ import os
 from pinecrypt.server import authority, const
 from jinja2 import Environment, FileSystemLoader
 from .utils.firewall import whitelist_subject
+from pinecrypt.server.mongolog import LogHandler
 
-logger = logging.getLogger(__name__)
 env = Environment(loader=FileSystemLoader(const.SCRIPT_DIR), trim_blocks=True)
+logger = LogHandler()
 
 class ScriptResource(object):
     @whitelist_subject

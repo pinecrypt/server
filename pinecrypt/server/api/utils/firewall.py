@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 from pinecrypt.server.user import User
 from pinecrypt.server import const, errors, db
 from prometheus_client import Counter, Histogram
+from pinecrypt.server.mongolog import LogHandler
 
 clock_skew = Histogram(
     "pinecrypt_gateway_clock_skew",
@@ -26,8 +27,7 @@ whitelist_blocked_requests = Counter(
     "Requests blocked by whitelists.",
     ["method", "path"])
 
-logger = logging.getLogger(__name__)
-
+logger = LogHandler()
 
 def whitelist_subnets(subnets):
     """

@@ -10,12 +10,14 @@ from asn1crypto.csr import CertificationRequest
 from certbuilder import CertificateBuilder
 from pinecrypt.server import mailer, const, errors, config, db
 from pinecrypt.server.common import cn_to_dn, generate_serial, cert_to_dn
+from pinecrypt.server.mongolog import LogHandler
 from crlbuilder import CertificateListBuilder, pem_armor_crl
 from csrbuilder import CSRBuilder, pem_armor_csr
 from datetime import datetime, timedelta
 from bson.objectid import ObjectId
 
-logger = logging.getLogger(__name__)
+#logger = logging.getLogger(__name__)
+logger = LogHandler()
 
 # Cache CA certificate
 with open(const.AUTHORITY_CERTIFICATE_PATH, "rb") as fh:

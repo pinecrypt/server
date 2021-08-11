@@ -3,8 +3,9 @@ import logging
 from pinecrypt.server import authority, const, config
 from pinecrypt.server.common import cert_to_dn
 from pinecrypt.server.decorators import serialize
+from pinecrypt.server.mongolog import LogHandler
 
-logger = logging.getLogger(__name__)
+logger = LogHandler()
 
 class BootstrapResource(object):
     @serialize

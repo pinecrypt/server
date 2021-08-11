@@ -26,12 +26,14 @@ from math import log, ceil
 from pinecrypt.server import const, mongolog, mailer, db
 from pinecrypt.server.middleware import NormalizeMiddleware, PrometheusEndpoint
 from pinecrypt.server.common import cn_to_dn, generate_serial
+from pinecrypt.server.mongolog import LogHandler
+#from pinecrypt.server.logger import CertidudeLogger
 from time import sleep
 from wsgiref.simple_server import make_server
 
-logger = logging.getLogger(__name__)
-mongolog.register()
-
+#logger = logging.getLogger(__name__)
+#logger = CertidudeLogger()
+logger = LogHandler()
 
 def graceful_exit(signal_number, stack_frame):
     print("Received signal %d, exiting now" % signal_number)

@@ -7,8 +7,9 @@ from pinecrypt.server import const, errors, authority
 from pinecrypt.server.decorators import serialize
 from pinecrypt.server.user import User
 from .utils.firewall import login_required, authorize_admin
+from pinecrypt.server.mongolog import LogHandler
 
-logger = logging.getLogger(__name__)
+logger = LogHandler()
 
 class TokenResource(object):
     def __init__(self, manager):

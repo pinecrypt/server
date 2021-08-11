@@ -2,8 +2,9 @@ import falcon
 import logging
 from pinecrypt.server import authority, const, errors
 from .utils.firewall import whitelist_subnets
+from pinecrypt.server.mongolog import LogHandler
 
-logger = logging.getLogger(__name__)
+logger = LogHandler()
 
 class RevocationListResource(object):
     @whitelist_subnets(const.CRL_SUBNETS)
