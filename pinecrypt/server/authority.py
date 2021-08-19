@@ -55,7 +55,7 @@ def self_enroll(skip_notify=False):
             return
 
     builder = CSRBuilder({"common_name": common_name}, self_public_key)
-    builder.hash_algo = const.CERTIFICATE_HASH_ALGORITHM
+    builder.hash_algo = certificate.hash_algo # Copy from CA cert
     request = builder.build(private_key)
 
     now = datetime.utcnow().replace(tzinfo=pytz.UTC)
@@ -390,9 +390,7 @@ def sign(profile, skip_notify=False, overwrite=False, signer=None, namespace=con
     builder = CertificateBuilder(cn_to_dn(common_name,
         ou=profile["ou"]), csr_pubkey)
     builder.serial_number = generate_serial()
-
-    if csr["signature_algorithm"].hash_algo == const.CERTIFICATE_HASH_ALGORITHM:
-        builder.hash_algo = const.CERTIFICATE_HASH_ALGORITHM
+    builder.hash_algo = certificate.hash_algo # Copy hash algorithm from CA cert
 
     now = datetime.utcnow().replace(tzinfo=pytz.UTC)
     builder.begin_date = now - const.CLOCK_SKEW_TOLERANCE

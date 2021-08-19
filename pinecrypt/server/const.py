@@ -35,14 +35,6 @@ REPLICAS = [j for j in os.getenv("REPLICAS", "").split(",") if j]
 if not MONGO_URI:
     MONGO_URI = "mongodb://127.0.0.1:27017/default?replicaSet=rs0"
 
-# Are set later, based on key type
-KEY_SIZE = None
-CURVE_NAME = None
-KEY_TYPE_CLIENTS = None
-
-# python CSRbuilder supports right now sha1, sha256 sha512
-CERTIFICATE_HASH_ALGORITHM = "sha512"
-
 # Kerberos-like clock skew tolerance
 CLOCK_SKEW_TOLERANCE = timedelta(minutes=5)
 
@@ -105,14 +97,12 @@ AUTHORITY_OCSP_URL = "http://%s/api/ocsp/" % AUTHORITY_NAMESPACE
 AUTHORITY_OCSP_DISABLED = os.getenv("AUTHORITY_OCSP_DISABLED", False)
 AUTHORITY_KEYTYPE = getenv_in("AUTHORITY_KEYTYPE", "rsa", "ec")
 
-if AUTHORITY_KEYTYPE == "rsa":
-    KEY_SIZE = 4096
-    # Keytype for web JS pki.js wants specific key type
-    KEY_TYPE_SPECIFIC = "RSASSA-PKCS1-v1_5"
 
-if AUTHORITY_KEYTYPE == "ec":
-    CURVE_NAME = "secp384r1"
-    KEY_TYPE_SPECIFIC = "ECDSA"
+# Key parameter defaults for now
+# Subject to change in future, make sure changing these won't break any existing deployments!
+KEY_SIZE = 4096  # Key size for RSA based certificates
+CURVE_NAME = "secp384r1"  # Curve name for EC based certificates
+CERTIFICATE_HASH_ALGORITHM = "sha512" # Certificate hashing algorithm
 
 # Tokens
 TOKEN_URL = "https://%(authority_name)s/#action=enroll&title=dev.lan&token=%(token)s&subject=%(subject_username)s&protocols=%(protocols)s"

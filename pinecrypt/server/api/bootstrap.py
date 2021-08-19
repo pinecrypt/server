@@ -6,6 +6,17 @@ from pinecrypt.server.mongolog import LogHandler
 
 logger = LogHandler()
 
+# Algorithm mappings for pki.js
+SIGNATURE_ALGO_MAPPING = {
+    "rsassa_pkcs1v15": "RSASSA-PKCS1-v1_5",
+    "ecdsa": "ECDSA",
+}
+
+HASH_ALGO_MAPPING = {
+    "sha256": "SHA-256",
+    "sha384": "SHA-384",
+    "sha512": "SHA-512",
+}
 
 class BootstrapResource(object):
     @serialize
@@ -33,8 +44,8 @@ class BootstrapResource(object):
             certificate=dict(
                 key_size=const.KEY_SIZE,
                 curve=const.CURVE_NAME,
-                hash_algorithm=const.CERTIFICATE_HASH_ALGORITHM,
-                key_type_specific = const.KEY_TYPE_SPECIFIC,
+                hash_algorithm=HASH_ALGO_MAPPING[authority.certificate.hash_algo],
+                signature_algorithm=SIGNATURE_ALGO_MAPPING[authority.certificate.signature_algo],
                 algorithm=authority.public_key.algorithm,
                 common_name=authority.certificate.subject.native["common_name"],
                 distinguished_name=cert_to_dn(authority.certificate),
