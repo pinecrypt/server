@@ -10,7 +10,6 @@ else:
 
 import falcon
 import click
-import logging
 import os
 import pymongo
 import signal
@@ -27,13 +26,11 @@ from pinecrypt.server import const, mongolog, mailer, db
 from pinecrypt.server.middleware import NormalizeMiddleware, PrometheusEndpoint
 from pinecrypt.server.common import cn_to_dn, generate_serial
 from pinecrypt.server.mongolog import LogHandler
-#from pinecrypt.server.logger import CertidudeLogger
 from time import sleep
 from wsgiref.simple_server import make_server
 
-#logger = logging.getLogger(__name__)
-#logger = CertidudeLogger()
 logger = LogHandler()
+
 
 def graceful_exit(signal_number, stack_frame):
     print("Received signal %d, exiting now" % signal_number)
@@ -218,7 +215,7 @@ def pinecone_serve_builder():
 @click.command("provision", help="Provision keys")
 def pinecone_provision():
 
-    #First thing init mongo db
+    # First thing init mongo db
     click.echo("Provisioning MongoDB replicaset")
     # WTF https://github.com/docker-library/mongo/issues/339
     c = pymongo.MongoClient("localhost", 27017)
@@ -236,9 +233,8 @@ def pinecone_provision():
         config = {"_id": "rs0", "members": [
             {"_id": index, "host": "%s:%s" % (ip_port[0], ip_port[1])} for index, ip_port in enumerate(mongo_uri["nodelist"])]}
 
-
-       #     config = {"_id":"rs0", "members": [
-       #         {"_id": 0, "host": "127.0.0.1:27017"}]}
+        #     config = {"_id":"rs0", "members": [
+        #         {"_id": 0, "host": "127.0.0.1:27017"}]}
         print("Provisioning MongoDB replicaset: %s" % repr(config))
 
         try:
@@ -263,6 +259,7 @@ def pinecone_provision():
 
         # https://technet.microsoft.com/en-us/library/aa998840(v=exchg.141).aspx
         builder = CertificateBuilder(distinguished_name, public_key)
+        builder.hash_algo = const.CERTIFICATE_HASH_ALGORITHM
         builder.self_signed = True
         builder.ca = True
         builder.serial_number = generate_serial()

@@ -1,5 +1,4 @@
 import click
-import logging
 import os
 import re
 import socket
@@ -16,7 +15,7 @@ from csrbuilder import CSRBuilder, pem_armor_csr
 from datetime import datetime, timedelta
 from bson.objectid import ObjectId
 
-#logger = logging.getLogger(__name__)
+# logger = logging.getLogger(__name__)
 logger = LogHandler()
 
 # Cache CA certificate
@@ -36,18 +35,18 @@ def self_enroll(skip_notify=False):
     common_name = const.HOSTNAME
 
     try:
-        cert, cert_doc, pem_buf = get_signed(common_name=common_name,namespace=const.AUTHORITY_NAMESPACE)
+        cert, cert_doc, pem_buf = get_signed(common_name=common_name, namespace=const.AUTHORITY_NAMESPACE)
         self_public_key = asymmetric.load_public_key(cert["tbs_certificate"]["subject_public_key_info"])
         private_key = asymmetric.load_private_key(const.SELF_KEY_PATH)
-    except (NameError, FileNotFoundError, errors.CertificateDoesNotExist) as error:  # certificate or private key not found
+    except (NameError, FileNotFoundError, errors.CertificateDoesNotExist):  # certificate or private key not found
         click.echo("Generating private key for frontend: %s" % const.SELF_KEY_PATH)
-        with open(const.SELF_KEY_PATH, 'wb') as fh:
+        with open(const.SELF_KEY_PATH, "wb") as fh:
             if public_key.algorithm == "ec":
                 self_public_key, private_key = asymmetric.generate_pair("ec", curve=public_key.curve)
             elif public_key.algorithm == "rsa":
                 self_public_key, private_key = asymmetric.generate_pair("rsa", bit_size=public_key.bit_size)
             else:
-                raise NotImplemented("CA certificate public key algorithm %s not supported" % public_key.algorithm)
+                raise NotImplementedError("CA certificate public key algorithm %s not supported" % public_key.algorithm)
             fh.write(asymmetric.dump_private_key(private_key, None))
     else:
         now = datetime.utcnow().replace(tzinfo=pytz.UTC)
@@ -55,13 +54,13 @@ def self_enroll(skip_notify=False):
             click.echo("Self certificate still valid, delete to self-enroll again")
             return
 
-
     builder = CSRBuilder({"common_name": common_name}, self_public_key)
+    builder.hash_algo = const.CERTIFICATE_HASH_ALGORITHM
     request = builder.build(private_key)
 
     now = datetime.utcnow().replace(tzinfo=pytz.UTC)
 
-    d ={}
+    d = {}
     d["submitted"] = now
     d["common_name"] = common_name
     d["request_buf"] = request.dump()
@@ -69,13 +68,14 @@ def self_enroll(skip_notify=False):
     d["user"] = {}
 
     doc = db.certificates.find_one_and_update({
-        "common_name":d["common_name"]
+        "common_name": d["common_name"]
     }, {
         "$set": d,
         "$setOnInsert": {
             "created": now,
-            "ip": [],
-       }},
+            "ip": []
+        }
+    },
         upsert=True,
         return_document=db.return_new)
 
@@ -98,6 +98,7 @@ def get_common_name_id(cn):
 
     return str(doc["_id"])
 
+
 def list_revoked(limit=0):
     # TODO: sort recent to oldest
     for cert_revoked_doc in db.certificates.find({"status": "revoked"}):
@@ -108,9 +109,10 @@ def list_revoked(limit=0):
             if limit <= 0:
                 return
 
+
 # TODO: it should be possible to regex search common_name directly from mongodb
 def list_signed(common_name=None):
-    for cert_doc in db.certificates.find({"status" : "signed"}):
+    for cert_doc in db.certificates.find({"status": "signed"}):
         if common_name:
             if common_name.startswith("^"):
                 if not re.match(common_name, cert_doc["common_name"]):
@@ -121,23 +123,27 @@ def list_signed(common_name=None):
         cert = x509.Certificate.load(cert_doc["cert_buf"])
         yield cert_doc, cert
 
+
 def list_requests():
     for request in db.certificates.find({"status": "csr"}):
         csr = CertificationRequest.load(request["request_buf"])
         yield csr, request, "." in request["common_name"]
 
+
 def list_replicas():
     """
     Return list of Mongo objects referring to all active replicas
     """
-    for doc in db.certificates.find({"status" : "signed", "profile.ou": "Gateway"}):
+    for doc in db.certificates.find({"status": "signed", "profile.ou": "Gateway"}):
         yield doc
+
 
 def get_ca_cert():
     fh = open(const.AUTHORITY_CERTIFICATE_PATH, "rb")
     server_certificate = asymmetric.load_certificate(fh.read())
     fh.close()
     return server_certificate
+
 
 def get_request(id):
     if not id:
@@ -146,10 +152,11 @@ def get_request(id):
     csr_doc = db.certificates.find_one({"_id": ObjectId(id), "status": "csr"})
 
     if not csr_doc:
-       raise errors.RequestDoesNotExist("Certificate signing request with id %s does not exist" % id)
+        raise errors.RequestDoesNotExist("Certificate signing request with id %s does not exist" % id)
 
     csr = CertificationRequest.load(csr_doc["request_buf"])
     return csr, csr_doc, pem_armor_csr(csr)
+
 
 def get_by_serial(serial):
     serial_string = "%x" % serial
@@ -162,6 +169,7 @@ def get_by_serial(serial):
 
     cert = x509.Certificate.load(cert_doc["cert_buf"])
     return cert_doc, cert
+
 
 def get_signed(mongo_id=False, common_name=False, namespace=const.AUTHORITY_NAMESPACE):
 
@@ -189,13 +197,13 @@ def get_revoked(serial):
     if isinstance(serial, int):
         serial = "%x" % serial
 
-    query = {"serial_number":serial, "status": "revoked"}
+    query = {"serial_number": serial, "status": "revoked"}
     cert_doc = db.certificates.find_one(query)
 
     if not cert_doc:
         raise errors.CertificateDoesNotExist
 
-    cert_pem_buf = pem.armor("CERTIFICATE",cert_doc["cert_buf"])
+    cert_pem_buf = pem.armor("CERTIFICATE", cert_doc["cert_buf"])
     return cert_doc, cert_pem_buf
 
 
@@ -221,10 +229,9 @@ def store_request(buf, overwrite=False, address="", user="", namespace=const.MAC
     if not re.match(const.RE_COMMON_NAME, common_name):
         raise ValueError("Invalid common name %s" % repr(common_name))
 
-
     query = {"common_name": common_name, "status": "csr"}
     doc = db.certificates.find_one(query)
-    d ={}
+    d = {}
     user_object = {}
 
     if doc and not overwrite:
@@ -255,7 +262,7 @@ def store_request(buf, overwrite=False, address="", user="", namespace=const.MAC
     d["user"] = user_object
 
     doc = db.certificates.find_one_and_update({
-        "common_name":d["common_name"]
+        "common_name": d["common_name"]
     }, {
         "$set": d,
         "$setOnInsert": {
@@ -267,6 +274,7 @@ def store_request(buf, overwrite=False, address="", user="", namespace=const.MAC
 
     return doc
 
+
 def revoke(mongo_id, reason, user="root"):
     """
     Revoke valid certificate
@@ -275,8 +283,8 @@ def revoke(mongo_id, reason, user="root"):
     common_name = cert_doc["common_name"]
 
     if reason not in ("key_compromise", "ca_compromise", "affiliation_changed",
-        "superseded", "cessation_of_operation", "certificate_hold",
-        "remove_from_crl", "privilege_withdrawn"):
+            "superseded", "cessation_of_operation", "certificate_hold",
+            "remove_from_crl", "privilege_withdrawn"):
         raise ValueError("Invalid revocation reason %s" % reason)
 
     logger.info("Revoked certificate %s by %s", common_name, user)
@@ -288,9 +296,9 @@ def revoke(mongo_id, reason, user="root"):
     else:
         raise ValueError("No common name or Id specified")
 
-    prev = db.certificates.find_one(query)
-    newValue = { "$set": { "status": "revoked", "revocation_reason": reason, "revoked": datetime.utcnow().replace(tzinfo=pytz.UTC)} }
-    db.certificates.find_one_and_update(query,newValue)
+    # prev = db.certificates.find_one(query)
+    newValue = {"$set": {"status": "revoked", "revocation_reason": reason, "revoked": datetime.utcnow().replace(tzinfo=pytz.UTC)}}
+    db.certificates.find_one_and_update(query, newValue)
 
     attach_cert = pem_buf, "application/x-pem-file", common_name + ".crt"
 
@@ -298,6 +306,7 @@ def revoke(mongo_id, reason, user="root"):
         attachments=(attach_cert,),
         serial_hex="%x" % cert.serial_number,
         common_name=common_name)
+
 
 def export_crl(pem=True):
     builder = CertificateListBuilder(
@@ -309,7 +318,7 @@ def export_crl(pem=True):
     # Get revoked certificates from database
     for cert_revoked_doc in db.certificates.find({"status": "revoked"}):
         builder.add_certificate(
-            int(cert_revoked_doc["serial"][:-4],16),
+            int(cert_revoked_doc["serial"][:-4], 16),
             datetime.utcfromtimestamp(cert_revoked_doc["revoked"]).replace(tzinfo=pytz.UTC),
             cert_revoked_doc["revocation_reason"]
         )
@@ -331,10 +340,11 @@ def delete_request(id, user="root"):
 
     if not doc:
         logger.info("Signing request with id %s not found" % (
-        id))
+            id))
         raise errors.RequestDoesNotExist
 
-    res = db.certificates.delete_one(query)
+    # TODO return if was success or failure
+    db.certificates.delete_one(query)
 
     logger.info("Rejected signing request %s %s by %s" % (doc["common_name"],
         id, user))
@@ -345,10 +355,9 @@ def sign(profile, skip_notify=False, overwrite=False, signer=None, namespace=con
     if mongo_id:
         csr_doc = db.certificates.find_one({"_id": ObjectId(mongo_id)})
         csr = CertificationRequest.load(csr_doc["request_buf"])
-        csr_buf_pem = pem.armor("CERTIFICATE REQUEST",csr_doc["request_buf"])
+        csr_buf_pem = pem.armor("CERTIFICATE REQUEST", csr_doc["request_buf"])
     else:
         raise ValueError("ID missing, what CSR to sign")
-
 
     assert isinstance(csr, CertificationRequest)
 
@@ -371,8 +380,8 @@ def sign(profile, skip_notify=False, overwrite=False, signer=None, namespace=con
 
     if prev:
         if overwrite:
-            newValue = { "$set": { "status": "revoked", "revoked": datetime.utcnow().replace(tzinfo=pytz.UTC), "revocation_reason": "superseded"} }
-            doc = db.certificates.find_one_and_update(query,newValue,return_document=db.return_new)
+            newValue = {"$set": {"status": "revoked", "revoked": datetime.utcnow().replace(tzinfo=pytz.UTC), "revocation_reason": "superseded"}}
+            doc = db.certificates.find_one_and_update(query, newValue, return_document=db.return_new)
             overwritten = True
         else:
             raise FileExistsError("Will not overwrite existing certificate")
@@ -381,6 +390,9 @@ def sign(profile, skip_notify=False, overwrite=False, signer=None, namespace=con
     builder = CertificateBuilder(cn_to_dn(common_name,
         ou=profile["ou"]), csr_pubkey)
     builder.serial_number = generate_serial()
+
+    if csr["signature_algorithm"].hash_algo == const.CERTIFICATE_HASH_ALGORITHM:
+        builder.hash_algo = const.CERTIFICATE_HASH_ALGORITHM
 
     now = datetime.utcnow().replace(tzinfo=pytz.UTC)
     builder.begin_date = now - const.CLOCK_SKEW_TOLERANCE
@@ -408,7 +420,7 @@ def sign(profile, skip_notify=False, overwrite=False, signer=None, namespace=con
 
     # Write certificate to database
     # DER format cert
-    cert_der_bytes = asymmetric.dump_certificate(end_entity_cert,encoding="der")
+    cert_der_bytes = asymmetric.dump_certificate(end_entity_cert, encoding="der")
 
     d = {
         "common_name": common_name,

@@ -35,8 +35,13 @@ REPLICAS = [j for j in os.getenv("REPLICAS", "").split(",") if j]
 if not MONGO_URI:
     MONGO_URI = "mongodb://127.0.0.1:27017/default?replicaSet=rs0"
 
-KEY_SIZE = 4096
-CURVE_NAME = "secp384r1"
+# Are set later, based on key type
+KEY_SIZE = None
+CURVE_NAME = None
+
+# python CSRbuilder supports right now sha1, sha256 sha512
+# CERTIFICATE_HASH_ALGORITHM = 'sha111'
+CERTIFICATE_HASH_ALGORITHM = "sha512"
 
 # Kerberos-like clock skew tolerance
 CLOCK_SKEW_TOLERANCE = timedelta(minutes=5)
@@ -76,7 +81,7 @@ AUTHORITY_ORGANIZATION = os.getenv("AUTHORITY_ORGANIZATION")
 AUTHORITY_LIFETIME_DAYS = 20 * 365
 
 # Advertise following IP addresses via DNS record
-ADVERTISE_ADDRESS = [j for j  in os.getenv("ADVERTISE_ADDRESS", "").split(",") if j]
+ADVERTISE_ADDRESS = [j for j in os.getenv("ADVERTISE_ADDRESS", "").split(",") if j]
 if not ADVERTISE_ADDRESS:
     ADVERTISE_ADDRESS = set()
     for fam, _, _, _, addrs in socket.getaddrinfo(FQDN, None):
@@ -99,6 +104,12 @@ AUTHORITY_CRL_URL = "http://%s/api/revoked/" % AUTHORITY_NAMESPACE
 AUTHORITY_OCSP_URL = "http://%s/api/ocsp/" % AUTHORITY_NAMESPACE
 AUTHORITY_OCSP_DISABLED = os.getenv("AUTHORITY_OCSP_DISABLED", False)
 AUTHORITY_KEYTYPE = getenv_in("AUTHORITY_KEYTYPE", "rsa", "ec")
+
+if AUTHORITY_KEYTYPE == "rsa":
+    KEY_SIZE = 4096
+
+if AUTHORITY_KEYTYPE == "ec":
+    CURVE_NAME = "secp384r1"
 
 # Tokens
 TOKEN_URL = "https://%(authority_name)s/#action=enroll&title=dev.lan&token=%(token)s&subject=%(subject_username)s&protocols=%(protocols)s"

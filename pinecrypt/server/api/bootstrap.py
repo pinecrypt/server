@@ -1,11 +1,11 @@
 import hashlib
-import logging
 from pinecrypt.server import authority, const, config
 from pinecrypt.server.common import cert_to_dn
 from pinecrypt.server.decorators import serialize
 from pinecrypt.server.mongolog import LogHandler
 
 logger = LogHandler()
+
 
 class BootstrapResource(object):
     @serialize
@@ -31,6 +31,9 @@ class BootstrapResource(object):
                 esp=config.get("Globals", "STRONGSWAN_ESP")["value"],
             ),
             certificate=dict(
+                key_size=const.KEY_SIZE,
+                curve=const.CURVE_NAME,
+                hash_algorithm=const.CERTIFICATE_HASH_ALGORITHM,
                 algorithm=authority.public_key.algorithm,
                 common_name=authority.certificate.subject.native["common_name"],
                 distinguished_name=cert_to_dn(authority.certificate),
