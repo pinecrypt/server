@@ -40,7 +40,6 @@ KEY_SIZE = None
 CURVE_NAME = None
 
 # python CSRbuilder supports right now sha1, sha256 sha512
-# CERTIFICATE_HASH_ALGORITHM = 'sha111'
 CERTIFICATE_HASH_ALGORITHM = "sha512"
 
 # Kerberos-like clock skew tolerance
