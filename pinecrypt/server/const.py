@@ -38,6 +38,7 @@ if not MONGO_URI:
 # Are set later, based on key type
 KEY_SIZE = None
 CURVE_NAME = None
+KEY_TYPE_CLIENTS = None
 
 # python CSRbuilder supports right now sha1, sha256 sha512
 CERTIFICATE_HASH_ALGORITHM = "sha512"
@@ -106,9 +107,12 @@ AUTHORITY_KEYTYPE = getenv_in("AUTHORITY_KEYTYPE", "rsa", "ec")
 
 if AUTHORITY_KEYTYPE == "rsa":
     KEY_SIZE = 4096
+    # Keytype for web JS pki.js wants specific key type
+    KEY_TYPE_SPECIFIC = "RSASSA-PKCS1-v1_5"
 
 if AUTHORITY_KEYTYPE == "ec":
     CURVE_NAME = "secp384r1"
+    KEY_TYPE_SPECIFIC = "ECDSA"
 
 # Tokens
 TOKEN_URL = "https://%(authority_name)s/#action=enroll&title=dev.lan&token=%(token)s&subject=%(subject_username)s&protocols=%(protocols)s"

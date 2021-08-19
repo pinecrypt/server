@@ -34,6 +34,7 @@ class BootstrapResource(object):
                 key_size=const.KEY_SIZE,
                 curve=const.CURVE_NAME,
                 hash_algorithm=const.CERTIFICATE_HASH_ALGORITHM,
+                key_type_specific = const.KEY_TYPE_SPECIFIC,
                 algorithm=authority.public_key.algorithm,
                 common_name=authority.certificate.subject.native["common_name"],
                 distinguished_name=cert_to_dn(authority.certificate),
