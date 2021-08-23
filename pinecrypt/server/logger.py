@@ -22,6 +22,9 @@ class CertidudeLogger(object):
     def debug(self, msg, *args):
         self.pre_emit(msg, *args, level="Debug")
 
+    def critical(self, msg, *args):
+        self.pre_emit(msg, *args, level="Critical")
+
     def pre_emit(self, msg, *args, level):
         record = LoggerObject()
         record.msg = msg
