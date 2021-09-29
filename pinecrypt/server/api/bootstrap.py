@@ -41,11 +41,15 @@ class BootstrapResource(object):
                 ike=config.get("Globals", "STRONGSWAN_IKE")["value"],
                 esp=config.get("Globals", "STRONGSWAN_ESP")["value"],
             ),
+            webcrypto=dict(
+                hash_algorithm=HASH_ALGO_MAPPING[authority.certificate.hash_algo],
+                signature_algorithm=SIGNATURE_ALGO_MAPPING[authority.certificate.signature_algo],
+            ),
             certificate=dict(
                 key_size=const.KEY_SIZE,
                 curve=const.CURVE_NAME,
-                hash_algorithm=HASH_ALGO_MAPPING[authority.certificate.hash_algo],
-                signature_algorithm=SIGNATURE_ALGO_MAPPING[authority.certificate.signature_algo],
+                hash_algorithm=authority.certificate.hash_algo,
+                signature_algorithm=authority.certificate.signature_algo,
                 algorithm=authority.public_key.algorithm,
                 common_name=authority.certificate.subject.native["common_name"],
                 distinguished_name=cert_to_dn(authority.certificate),
