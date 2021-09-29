@@ -18,6 +18,12 @@ HASH_ALGO_MAPPING = {
     "sha512": "SHA-512",
 }
 
+CURVE_NAME_MAPPING = {
+    "secp256r1": "P-256",
+    "secp384r1": "P-384",
+    "secp521r1": "P-521",
+}
+
 class BootstrapResource(object):
     @serialize
     def on_get(self, req, resp):
@@ -44,6 +50,7 @@ class BootstrapResource(object):
             webcrypto=dict(
                 hash_algorithm=HASH_ALGO_MAPPING[authority.certificate.hash_algo],
                 signature_algorithm=SIGNATURE_ALGO_MAPPING[authority.certificate.signature_algo],
+                curve=CURVE_NAME_MAPPING.get(const.CURVE_NAME),
             ),
             certificate=dict(
                 key_size=const.KEY_SIZE,
